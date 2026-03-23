@@ -1,0 +1,147 @@
+//-------------------------------------------------------------------------
+//
+// Point Classes
+//
+//-------------------------------------------------------------------------
+
+@PointClass base(Targetname, Origin, Angles) studio("models/Gibs/HGIBS.mdl") = zgr_item_spawn_food :
+	"ZGRAD Item spawn entity. " +
+	"This one spawns a random item from the food loot table"
+[
+]
+
+@PointClass base(Targetname, Origin, Angles) studio("models/Gibs/HGIBS.mdl") = zgr_item_spawn_drugs :
+	"ZGRAD Item spawn entity. " +
+	"This one spawns a random drug"
+[
+]
+
+@PointClass base(Targetname, Origin, Angles) studio("models/Gibs/HGIBS.mdl") = zgr_item_spawn_ammo :
+	"ZGRAD Item spawn entity. " +
+	"This one spawns a random item from the ammo loot table"
+[
+]
+
+@PointClass base(Targetname, Origin, Angles) studio("models/Gibs/HGIBS.mdl") = zgr_item_spawn_medical :
+	"ZGRAD Item spawn entity. " +
+	"This one spawns a random item from the medical loot table"
+[
+]
+
+@PointClass base(Targetname, Origin, Angles) studio("models/Gibs/HGIBS.mdl") = zgr_item_spawn_hats :
+	"ZGRAD Item spawn entity. " +
+	"This one spawns a random item from the hats loot table"
+[
+]
+
+@PointClass base(Targetname, Origin, Angles) studio("models/Gibs/HGIBS.mdl") = zgr_item_spawn_armor :
+	"ZGRAD Item spawn entity. " +
+	"This one spawns a random item from the armor loot table"
+[
+]
+
+@PointClass base(Targetname, Origin, Angles) studio("models/Gibs/HGIBS.mdl") = zgr_item_spawn_common :
+	"ZGRAD Item spawn entity. " +
+	"This one spawns a random item from the common loot table"
+[
+]
+
+@PointClass base(Targetname, Origin, Angles) studio("models/Gibs/HGIBS.mdl") = zgr_item_spawn_uncommon :
+	"ZGRAD Item spawn entity. " +
+	"This one spawns a random item from the uncommon loot table"
+[
+]
+
+@PointClass base(Targetname, Origin, Angles) studio("models/Gibs/HGIBS.mdl") = zgr_item_spawn_rare :
+	"ZGRAD Item spawn entity. " +
+	"This one spawns a random item from the rar loot table"
+[
+]
+
+@PointClass base(Targetname, Origin, Angles) studio("models/Gibs/HGIBS.mdl") = zgr_item_spawn_epic :
+	"ZGRAD Item spawn entity. " +
+	"This one spawns a random item from the epic loot table"
+[
+]
+
+@PointClass base(Targetname, Origin, Angles) studio("models/Gibs/HGIBS.mdl") = zgr_item_spawn_legendary :
+	"ZGRAD Item spawn entity. " +
+	"This one spawns a random item from the legendary loot table"
+[
+]
+
+@PointClass base(Targetname, Origin, Angles) studio("models/Gibs/HGIBS.mdl") = zgr_item_spawn_ancient :
+	"ZGRAD Item spawn entity. " +
+	"This one spawns a random item from the ancient loot table"
+[
+]
+
+@PointClass base(Targetname, Origin, Angles) studio("models/Gibs/HGIBS.mdl") = zgr_item_spawn_special :
+	"ZGRAD Item spawn entity. " +
+	"This one spawns a random item from the special loot table"
+[
+]
+
+@PointClass base(Targetname, Origin, Angles) = zgr_game_logic :
+	"Mode blacklisting and gamemode specific event outputs"
+[
+	blacklistedmodes(string) : "Blacklisted Modes" : "" : "List of modes to blacklist by mode short name (check kaki votenextround in game). Separate by comma OR space."
+
+	input AdrenalineEvent(void) : "Gives all living players an adrenaline boost, can only be triggered once per round."
+	input RagdollActivator(void) : "Ragdolls the activator of this input (if it's a living player)."
+	input StunActivator(void) : "Stuns the activator of this input (if it's a living player)."
+	input InsanityActivator(void) : "Gives the activator of this input full insanity (if it's a living player)."
+	input InfectActivator(void) : "Infects the activator of this input (if it's a living player)."
+	input ExplodeLegsActivator(void) : "Removes the legs from the activator of this input (if it's a living player)."
+
+	output ZGRADLogicSpawned(void) : "Fires when this entity spawns."
+	output CurrentDateMonth(string) : "Fires when this entity spawns. Outputs the current date's month as a string (01 - 12)."
+	output RoundStart(void) : "Fires when a round starts."
+	output PlayerCount(integer) : "Fires when a round starts. Player count as an int."
+	output RoundType(string) : "Fires when a round starts. Round type as a string."
+	output RoundEnd(void) : "Fires when a round ends."
+]
+
+@PointClass base(Targetname, Origin, Angles) studio("models/editor/playerstart.mdl") = zgr_spawn_deathmatch :
+	"ZGRAD general-purpose player spawn point. " +
+	"Used as a fallback spawn for all game modes."
+[
+]
+
+@PointClass base(Targetname, Origin, Angles) studio("models/editor/playerstart.mdl") = zgr_spawn_red :
+	"ZGRAD Red/Terrorist team spawn point."
+[
+]
+
+@PointClass base(Targetname, Origin, Angles) studio("models/editor/playerstart.mdl") = zgr_spawn_blue :
+	"ZGRAD Blue/Counter-Terrorist team spawn point."
+[
+]
+
+@PointClass base(Targetname, Origin, Angles) studio("models/editor/playerstart.mdl") = zgr_spawn_boxspawn :
+	"ZGRAD loot box spawn point. " +
+	"Loot will periodically spawn at or near this position."
+[
+]
+
+@PointClass base(Targetname, Origin) studio("models/editor/bullseye.mdl") = zgr_control_point :
+	"ZGRAD capture point. " +
+	"Players stand within 256 units to capture it for their team."
+[
+	pointindex(integer) : "Point Index" : 1 : "Unique index for this capture point (1, 2, 3...). Each point on the map must have a different index."
+]
+
+@SolidClass base(Trigger, Targetname) = zgr_func_fake :
+	"A brush that knocks players into a ragdoll (fake dead) state when they enter it."
+[
+]
+
+@SolidClass base(Trigger, Targetname) = zgr_func_block_unragdoll :
+	"A brush that prevents players from unragdolling while inside when active."
+[
+]
+
+@SolidClass base(Trigger, Targetname) = zgr_func_transform_zombie :
+	"A brush that transforms players inside into a zombie when active."
+[
+]
