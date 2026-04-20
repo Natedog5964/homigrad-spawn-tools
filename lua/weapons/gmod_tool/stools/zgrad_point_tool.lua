@@ -199,7 +199,54 @@ if CLIENT then
     language.Add( "Tool.zgrad_point_tool.name",  "Map Point Editor (ZGRAD)" )
     language.Add( "Tool.zgrad_point_tool.desc",  "Place and edit ZGRAD/Homigrad spawn and capture points. Saves to garrysmod/data/zgrad/maps/." )
     language.Add( "Tool.zgrad_point_tool.0",
-        "[Place] LMB: Place point   |   [Select] LMB: Select / Move   RMB: Delete   R: Deselect" )
+        "[Place] LMB: Place point   |   [Select] LMB: Select / Move   RMB: Delete   R: Deselect   |   Scroll: swap mode" )
+
+    local function IsHoldingPointTool( ply )
+        if not IsValid( ply ) then return false end
+        local wep = ply:GetActiveWeapon()
+        if not IsValid( wep ) or wep:GetClass() ~= "gmod_tool" then return false end
+        return ply:GetInfo( "gmod_toolmode" ) == "zgrad_point_tool"
+    end
+
+    local SCROLL_COOLDOWN = 0.18
+    local lastScrollSwap  = 0
+    local pendingMode     = nil
+
+    cvars.AddChangeCallback( "zgrad_point_tool_mode", function( _, _, new )
+        if pendingMode == new then pendingMode = nil end
+    end, "zgrad_point_tool_mode_pending" )
+
+    local function SwapPointToolMode()
+        local cur = pendingMode
+        if not cur then
+            local cv = GetConVar( "zgrad_point_tool_mode" )
+            cur = cv and cv:GetString() or "place"
+        end
+
+        local nextMode = ( cur == "place" ) and "select" or "place"
+        pendingMode = nextMode
+        RunConsoleCommand( "zgrad_point_tool_mode", nextMode )
+    end
+
+    hook.Add( "CreateMove", "ZGrad_PointToolScrollSwap", function( cmd )
+        if vgui.CursorVisible() or gui.IsGameUIVisible() then return end
+        if not IsHoldingPointTool( LocalPlayer() ) then return end
+
+        if cmd:GetMouseWheel() == 0 then return end
+        cmd:SetMouseWheel( 0 )
+
+        local now = RealTime()
+        if now - lastScrollSwap < SCROLL_COOLDOWN then return end
+        lastScrollSwap = now
+
+        SwapPointToolMode()
+    end )
+
+    hook.Add( "PlayerBindPress", "ZGrad_PointToolBlockInvScroll", function( ply, bind )
+        if bind ~= "invnext" and bind ~= "invprev" then return end
+        if not IsHoldingPointTool( ply ) then return end
+        return true
+    end )
 
     local TEXT_WHITE = Color( 240, 240, 240 )
     local TEXT_GRAY  = Color( 160, 160, 160 )
@@ -236,6 +283,11 @@ if CLIENT then
         modeCombo:Dock( TOP )
         modeCombo:DockMargin( 4, 0, 4, 4 )
         cpanel:AddItem( modeCombo )
+
+        cvars.AddChangeCallback( "zgrad_point_tool_mode", function( _, _, new )
+            if not IsValid( modeCombo ) then return end
+            modeCombo:SetValue( new == "select" and "Select / Move / Delete" or "Place" )
+        end, "zgrad_point_tool_mode_combo" )
 
         MakeHeader( cpanel, "Placement Origin" )
 
