@@ -1,7 +1,6 @@
 local TOOL_NAME         = "zgrad_point_tool"
 local HOVER_RADIUS_SQ   = 160 * 160
 local SPHERE_SEGS       = 12
-local CP_CAPTURE_RADIUS = 256
 
 local RENDER_DIST       = 4000
 local RENDER_DIST_SQ    = RENDER_DIST * RENDER_DIST
@@ -12,12 +11,11 @@ local LABEL_DIST_SQ     = 1200 * 1200
 local SELECTED_COLOR    = Color( 255, 230, 60 )
 local HOVER_COLOR       = Color( 255, 180, 50 )
 local HAMMER_COLOR      = Color( 120, 120, 120 )
+local BLOCKED_COLOR     = Color( 255, 60, 60 )
 
-local TYPE_RADIUS = {
-    control_point = CP_CAPTURE_RADIUS,
-    boxspawn      = 48,
-}
-local DEFAULT_SPAWN_RADIUS = 24
+local function GetRadius( typeName )
+    return ZGRAD.GetPointRadius and ZGRAD.GetPointRadius( typeName ) or 24
+end
 
 local ARROW_LENGTH     = 40
 local ARROW_HEAD       = 16
@@ -50,7 +48,7 @@ local function RebuildCache()
         local typeName   = info[1]
         local baseColor  = info[2]
         local pts        = info[3]
-        local gameRadius = TYPE_RADIUS[typeName] or DEFAULT_SPAWN_RADIUS
+        local gameRadius = GetRadius( typeName )
 
         typeColorCache[typeName] = baseColor
 
@@ -103,6 +101,10 @@ end )
 net.Receive( "zgrad_pt_select_deny", function()
     surface.PlaySound( "buttons/button10.wav" )
     chat.AddText( Color( 255, 80, 80 ), "[ZGRAD]", color_white, " Cannot select Hammer-placed points." )
+end )
+
+net.Receive( "zgrad_pt_place_deny", function()
+    surface.PlaySound( "buttons/button10.wav" )
 end )
 
 local function IsToolActive()
@@ -277,8 +279,17 @@ local function DrawGhostPreview()
 
     if not pos then return end
 
-    local col        = typeColorCache[typeName] or color_white
-    local gameRadius = TYPE_RADIUS[typeName] or DEFAULT_SPAWN_RADIUS
+    local ignoreKey, ignoreIdx
+    if mode == "select" and selectedPoint then
+        ignoreKey = DataKeyForShortName( selectedPoint.pointType )
+        ignoreIdx = selectedPoint.index
+    end
+
+    local blocked = ZGRAD.FindIntersectingPoint
+        and ZGRAD.FindIntersectingPoint( pos, typeName, ignoreKey, ignoreIdx ) ~= nil
+
+    local col        = blocked and BLOCKED_COLOR or ( typeColorCache[typeName] or color_white )
+    local gameRadius = GetRadius( typeName )
     local ang        = Angle( 0, ply:EyeAngles().y, 0 )
 
     render.SetColorMaterial()

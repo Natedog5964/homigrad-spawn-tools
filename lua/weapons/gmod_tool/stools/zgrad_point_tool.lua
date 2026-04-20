@@ -71,10 +71,23 @@ if SERVER then
         return false
     end
 
+    local function NotifyBlocked( ply, pointType, hit )
+        ChatTell( ply, "Cannot place " .. pointType .. " here: overlaps " ..
+            hit.typeName .. " #" .. hit.index .. "." )
+        net.Start( "zgrad_pt_place_deny" )
+        net.Send( ply )
+    end
+
     local function DoAdd( ply, pointType, pos, ang, pointNum )
         local dataKey = DataKeyForType( pointType )
         if not dataKey then
             ChatTell( ply, "Unknown point type: " .. tostring( pointType ) )
+            return
+        end
+
+        local hit = ZGRAD.FindIntersectingPoint( pos, pointType )
+        if hit then
+            NotifyBlocked( ply, pointType, hit )
             return
         end
 
@@ -115,14 +128,20 @@ if SERVER then
 
     local function DoMove( ply, pointType, index, newPos, newAng )
         local dataKey = DataKeyForType( pointType )
-        if not dataKey then return end
+        if not dataKey then return false end
 
         local pts = ZGRAD.SpawnPointsList[dataKey][3]
-        if not pts[index] then return end
+        if not pts[index] then return false end
 
         if pts[index][4] then
             ChatTell( ply, "Hammer-placed points cannot be moved." )
-            return
+            return false
+        end
+
+        local hit = ZGRAD.FindIntersectingPoint( newPos, pointType, dataKey, index )
+        if hit then
+            NotifyBlocked( ply, pointType, hit )
+            return false
         end
 
         pts[index][1] = newPos
@@ -131,6 +150,7 @@ if SERVER then
 
         ZGRAD.SendSpawnPoint()
         ChatTellAll( ply, "moved " .. pointType .. " point #" .. index .. "." )
+        return true
     end
 
     function TOOL:LeftClick( trace )
@@ -153,8 +173,9 @@ if SERVER then
                 local placeMode = self:GetClientInfo( "place_mode" )
                 local newPos    = ( placeMode == "self" ) and ply:GetPos() or ( trace.HitPos + Vector( 0, 0, 5 ) )
                 local newAng    = Angle( 0, ply:EyeAngles().y, 0 )
-                DoMove( ply, sel.pointType, sel.index, newPos, newAng )
-                PointToolClearSelect( ply )
+                if DoMove( ply, sel.pointType, sel.index, newPos, newAng ) then
+                    PointToolClearSelect( ply )
+                end
             end
         end
 
@@ -191,6 +212,7 @@ if SERVER then
     util.AddNetworkString( "zgrad_pt_select_sv" )
 
     util.AddNetworkString( "zgrad_pt_select_deny" )
+    util.AddNetworkString( "zgrad_pt_place_deny" )
 
     net.Receive( "zgrad_pt_select_sv", function( _, ply )
         local pointType = net.ReadString()
