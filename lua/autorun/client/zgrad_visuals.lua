@@ -301,6 +301,113 @@ local function CachedResolvePlacement( pos, typeName, ignoreKey, ignoreIdx )
     return resolved
 end
 
+local function DrawAreaRectangle( center, yaw, length, width, col )
+    local ang = Angle( 0, yaw, 0 )
+    local fwd = ang:Forward()
+    local rgt = ang:Right()
+
+    local hl = length * 0.5
+    local hw = width  * 0.5
+
+    local c1 = center + fwd *  hl + rgt *  hw
+    local c2 = center + fwd *  hl + rgt * -hw
+    local c3 = center + fwd * -hl + rgt * -hw
+    local c4 = center + fwd * -hl + rgt *  hw
+
+    render.SetColorMaterial()
+    render.DrawLine( c1, c2, col, true )
+    render.DrawLine( c2, c3, col, true )
+    render.DrawLine( c3, c4, col, true )
+    render.DrawLine( c4, c1, col, true )
+
+    render.DrawLine( center + fwd * -hl, center + fwd * hl, col, true )
+    render.DrawLine( center + rgt * -hw, center + rgt * hw, col, true )
+end
+
+local areaCache = { time = -1, points = {} }
+local AREA_CACHE_TTL      = 0.15
+local AREA_CACHE_DIST_SQ  = 64
+
+local function GetCachedAreaPoints( ply, center, yaw, placementType, typeName )
+    local nowMinSpacing = ply:GetInfoNum( "zgrad_point_tool_area_min_spacing", 64 )
+    local nowLength     = ply:GetInfoNum( "zgrad_point_tool_area_length", 512 )
+    local nowWidth      = ply:GetInfoNum( "zgrad_point_tool_area_width",  512 )
+    local nowGrid       = ply:GetInfoNum( "zgrad_point_tool_grid_spacing", 64 )
+
+    local now = RealTime()
+    if areaCache.time >= 0
+        and now - areaCache.time < AREA_CACHE_TTL
+        and areaCache.type        == placementType
+        and areaCache.pointType   == typeName
+        and areaCache.yaw         == yaw
+        and areaCache.minSpacing  == nowMinSpacing
+        and areaCache.length      == nowLength
+        and areaCache.width       == nowWidth
+        and areaCache.gridSpacing == nowGrid
+        and areaCache.center:DistToSqr( center ) < AREA_CACHE_DIST_SQ
+    then
+        return areaCache.points
+    end
+
+    local length     = ply:GetInfoNum( "zgrad_point_tool_area_length", 512 )
+    local width      = ply:GetInfoNum( "zgrad_point_tool_area_width",  512 )
+    local minSpacing = math.max( 0, ply:GetInfoNum( "zgrad_point_tool_area_min_spacing", 64 ) )
+    local snap       = ply:GetInfoNum( "zgrad_point_tool_snap_ground", 0 ) >= 1
+    local minSq      = minSpacing * minSpacing
+
+    local raw
+    if placementType == "grid" then
+        local spacing = math.max( 8, ply:GetInfoNum( "zgrad_point_tool_grid_spacing", 64 ) )
+        raw = ZGRAD.GetAreaGridPositions( center, yaw, length, width, spacing )
+    else
+        raw = {}
+    end
+
+    local result = {}
+    local batch  = {}
+    for _, p in ipairs( raw ) do
+        local pos = p
+        if snap then
+            pos = ZGRAD.SnapToGround( p ) or p
+        end
+
+        local ok = not ZGRAD.IsPointInWall( pos )
+            and not ZGRAD.FindIntersectingPoint( pos, typeName )
+
+        if ok and minSpacing > 0 and ZGRAD.FindNearbyPoint( pos, minSpacing ) then
+            ok = false
+        end
+
+        if ok then
+            for _, other in ipairs( batch ) do
+                if ZGRAD.PointsIntersect( pos, typeName, other, typeName ) then
+                    ok = false
+                    break
+                end
+                if minSq > 0 and pos:DistToSqr( other ) < minSq then
+                    ok = false
+                    break
+                end
+            end
+        end
+
+        result[#result + 1] = { pos = pos, ok = ok }
+        if ok then batch[#batch + 1] = pos end
+    end
+
+    areaCache.time        = now
+    areaCache.type        = placementType
+    areaCache.pointType   = typeName
+    areaCache.yaw         = yaw
+    areaCache.minSpacing  = nowMinSpacing
+    areaCache.length      = nowLength
+    areaCache.width       = nowWidth
+    areaCache.gridSpacing = nowGrid
+    areaCache.center      = Vector( center )
+    areaCache.points      = result
+    return result
+end
+
 local function DrawGhostPreview()
     local ply  = LocalPlayer()
     local mode = ply:GetInfo( "zgrad_point_tool_mode" )
@@ -315,6 +422,26 @@ local function DrawGhostPreview()
     end
 
     if not pos then return end
+
+    local placementType = mode == "place" and ply:GetInfo( "zgrad_point_tool_placement_type" ) or "single"
+    if placementType == "random" or placementType == "grid" then
+        local baseCol = typeColorCache[typeName] or color_white
+        local length  = ply:GetInfoNum( "zgrad_point_tool_area_length", 512 )
+        local width   = ply:GetInfoNum( "zgrad_point_tool_area_width",  512 )
+        local yaw     = ply:EyeAngles().y
+
+        DrawAreaRectangle( pos, yaw, length, width, MutColor( baseCol, 180 ) )
+
+        if placementType == "grid" then
+            local points = GetCachedAreaPoints( ply, pos, yaw, placementType, typeName )
+            for _, entry in ipairs( points ) do
+                local c = entry.ok and baseCol or BLOCKED_COLOR
+                render.DrawSphere( entry.pos, 3, 6, 6, MutColor( c, 180 ) )
+            end
+        end
+
+        return
+    end
 
     local ignoreKey, ignoreIdx
     if mode == "select" and selectedPoint then

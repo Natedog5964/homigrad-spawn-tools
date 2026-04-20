@@ -3,11 +3,17 @@ TOOL.Name       = "#zgrad_point_tool"
 TOOL.Command    = nil
 TOOL.ConfigName = ""
 
-TOOL.ClientConVar["point_type"]   = "red"
-TOOL.ClientConVar["point_number"] = "25"
-TOOL.ClientConVar["mode"]         = "place"
-TOOL.ClientConVar["place_mode"]   = "surface"
-TOOL.ClientConVar["snap_ground"]  = "0"
+TOOL.ClientConVar["point_type"]     = "red"
+TOOL.ClientConVar["point_number"]   = "25"
+TOOL.ClientConVar["mode"]           = "place"
+TOOL.ClientConVar["place_mode"]     = "surface"
+TOOL.ClientConVar["snap_ground"]    = "0"
+TOOL.ClientConVar["placement_type"]   = "single"
+TOOL.ClientConVar["area_length"]      = "512"
+TOOL.ClientConVar["area_width"]       = "512"
+TOOL.ClientConVar["area_count"]       = "16"
+TOOL.ClientConVar["grid_spacing"]     = "64"
+TOOL.ClientConVar["area_min_spacing"] = "64"
 
 if SERVER then
     local function IsAuthorized( ply )
@@ -50,32 +56,75 @@ if SERVER then
         end
     end
 
-    local function UndoAddedPoint( _, dataKey, pointRef, pointType, ply )
+    local function UndoAddedPoints( _, dataKey, pointRefs, pointType, ply )
         local pts = ZGRAD.SpawnPointsList[dataKey] and ZGRAD.SpawnPointsList[dataKey][3]
         if not pts then return false end
 
-        for i = 1, #pts do
-            if pts[i] == pointRef then
-                if pts[i][4] then
-                    ChatTell( ply, "Hammer-placed points cannot be undone." )
-                    return false
-                end
+        local removed = 0
+        local blockedHammer = false
 
-                table.remove( pts, i )
-                ZGRAD.WriteDataMap( dataKey, pts )
-                ZGRAD.SendSpawnPoint()
-                ChatTellAll( ply, "undid " .. pointType .. " point placement." )
-                return
+        for _, ref in ipairs( pointRefs ) do
+            for i = 1, #pts do
+                if pts[i] == ref then
+                    if pts[i][4] then
+                        blockedHammer = true
+                    else
+                        table.remove( pts, i )
+                        removed = removed + 1
+                    end
+                    break
+                end
             end
         end
 
-        return false
+        if blockedHammer then
+            ChatTell( ply, "Hammer-placed points cannot be undone." )
+        end
+
+        if removed == 0 then return false end
+
+        ZGRAD.WriteDataMap( dataKey, pts )
+        ZGRAD.SendSpawnPoint()
+
+        local label = ( removed == 1 )
+            and ( "undid " .. pointType .. " point placement." )
+            or  ( "undid placement of " .. removed .. " " .. pointType .. " points." )
+        ChatTellAll( ply, label )
     end
 
     local function NotifyBlocked( ply, reason )
         ChatTell( ply, "Cannot place point: " .. reason )
         net.Start( "zgrad_pt_place_deny" )
         net.Send( ply )
+    end
+
+    local function CommitPoints( ply, pointType, dataKey, entries )
+        if #entries == 0 then return 0 end
+
+        local pts    = ZGRAD.SpawnPointsList[dataKey][3]
+        local points = {}
+        for _, e in ipairs( entries ) do
+            local point = { e.pos, e.ang, tonumber( e.num ) }
+            table.insert( pts, point )
+            points[#points + 1] = point
+        end
+
+        ZGRAD.WriteDataMap( dataKey, pts )
+        ZGRAD.SendSpawnPoint()
+
+        if IsValid( ply ) then
+            local label = ( #points == 1 )
+                and ( "Undone ZGRAD " .. pointType .. " point" )
+                or  ( "Undone ZGRAD " .. pointType .. " placement (" .. #points .. ")" )
+
+            undo.Create( "zgrad_point" )
+                undo.SetPlayer( ply )
+                undo.AddFunction( UndoAddedPoints, dataKey, points, pointType, ply )
+                undo.SetCustomUndoText( label )
+            undo.Finish( "ZGRAD " .. pointType .. " point" )
+        end
+
+        return #points
     end
 
     local function DoAdd( ply, pointType, pos, ang, pointNum )
@@ -91,20 +140,64 @@ if SERVER then
             return
         end
 
-        local point = { resolved, ang, tonumber( pointNum ) }
-        table.insert( ZGRAD.SpawnPointsList[dataKey][3], point )
-        ZGRAD.WriteDataMap( dataKey, ZGRAD.SpawnPointsList[dataKey][3] )
-
-        ZGRAD.SendSpawnPoint()
+        CommitPoints( ply, pointType, dataKey, {
+            { pos = resolved, ang = ang, num = pointNum },
+        } )
         ChatTellAll( ply, "added a " .. pointType .. " point to the map." )
+    end
 
-        if IsValid( ply ) then
-            undo.Create( "zgrad_point" )
-                undo.SetPlayer( ply )
-                undo.AddFunction( UndoAddedPoint, dataKey, point, pointType, ply )
-                undo.SetCustomUndoText( "Undone ZGRAD " .. pointType .. " point" )
-            undo.Finish( "ZGRAD " .. pointType .. " point" )
+    local function PositionIsPlaceable( pos, pointType, batch, minSpacing )
+        if ZGRAD.IsPointInWall( pos ) then return false end
+        if ZGRAD.FindIntersectingPoint( pos, pointType ) then return false end
+
+        if minSpacing and minSpacing > 0 and ZGRAD.FindNearbyPoint( pos, minSpacing ) then
+            return false
         end
+
+        local minSq = ( minSpacing or 0 ) * ( minSpacing or 0 )
+        for _, other in ipairs( batch ) do
+            if ZGRAD.PointsIntersect( pos, pointType, other, pointType ) then
+                return false
+            end
+            if minSq > 0 and pos:DistToSqr( other ) < minSq then
+                return false
+            end
+        end
+
+        return true
+    end
+
+    local function DoAddArea( ply, pointType, candidates, ang, pointNum, snapGround, limit, minSpacing )
+        local dataKey = DataKeyForType( pointType )
+        if not dataKey then
+            ChatTell( ply, "Unknown point type: " .. tostring( pointType ) )
+            return
+        end
+
+        local entries = {}
+        local batch   = {}
+
+        for _, raw in ipairs( candidates ) do
+            if limit and #entries >= limit then break end
+
+            local pos = raw
+            if snapGround then
+                pos = ZGRAD.SnapToGround( raw ) or raw
+            end
+
+            if PositionIsPlaceable( pos, pointType, batch, minSpacing ) then
+                entries[#entries + 1] = { pos = pos, ang = ang, num = pointNum }
+                batch[#batch + 1]     = pos
+            end
+        end
+
+        local n = CommitPoints( ply, pointType, dataKey, entries )
+        if n == 0 then
+            NotifyBlocked( ply, "no valid positions in area." )
+            return
+        end
+
+        ChatTellAll( ply, "added " .. n .. " " .. pointType .. " points to the map." )
     end
 
     local function DoRemove( ply, pointType, index )
@@ -159,23 +252,50 @@ if SERVER then
 
         local mode = self:GetClientInfo( "mode" )
 
-        local function GetCursorPos()
-            local placeMode = self:GetClientInfo( "place_mode" )
-            local base      = ( placeMode == "self" ) and ply:GetPos() or ( trace.HitPos + Vector( 0, 0, 5 ) )
+        local snapGround = self:GetClientNumber( "snap_ground", 0 ) >= 1
 
-            if self:GetClientNumber( "snap_ground", 0 ) >= 1 then
+        local function GetRawCursor()
+            local placeMode = self:GetClientInfo( "place_mode" )
+            return ( placeMode == "self" ) and ply:GetPos() or ( trace.HitPos + Vector( 0, 0, 5 ) )
+        end
+
+        local function GetCursorPos()
+            local base = GetRawCursor()
+            if snapGround then
                 local snapped = ZGRAD.SnapToGround( base )
                 if snapped then return snapped end
             end
-
             return base
         end
 
         if mode == "place" then
-            local pointType  = self:GetClientInfo( "point_type" )
-            local pointNum   = tonumber( self:GetClientNumber( "point_number", 25 ) ) or 25
-            local ang        = Angle( 0, ply:EyeAngles().y, 0 )
-            DoAdd( ply, pointType, GetCursorPos(), ang, pointNum )
+            local pointType     = self:GetClientInfo( "point_type" )
+            local pointNum      = tonumber( self:GetClientNumber( "point_number", 25 ) ) or 25
+            local ang           = Angle( 0, ply:EyeAngles().y, 0 )
+            local placementType = self:GetClientInfo( "placement_type" )
+
+            if placementType == "single" then
+                DoAdd( ply, pointType, GetCursorPos(), ang, pointNum )
+            else
+                local center = GetCursorPos()
+                local yaw    = ply:EyeAngles().y
+                local length = math.max( 32, self:GetClientNumber( "area_length", 512 ) )
+                local width  = math.max( 32, self:GetClientNumber( "area_width",  512 ) )
+
+                local minSpacing = math.max( 0, self:GetClientNumber( "area_min_spacing", 64 ) )
+
+                local candidates, limit
+                if placementType == "grid" then
+                    local spacing = math.max( 8, self:GetClientNumber( "grid_spacing", 64 ) )
+                    candidates = ZGRAD.GetAreaGridPositions( center, yaw, length, width, spacing )
+                else
+                    local count = math.max( 1, math.floor( self:GetClientNumber( "area_count", 16 ) ) )
+                    candidates = ZGRAD.GetAreaRandomCandidates( center, yaw, length, width, count )
+                    limit      = count
+                end
+
+                DoAddArea( ply, pointType, candidates, ang, pointNum, snapGround, limit, minSpacing )
+            end
 
         elseif mode == "select" then
             local sel = PointToolGetSelect( ply )
@@ -437,6 +557,64 @@ if CLIENT then
         numSlider:Dock( TOP )
         numSlider:DockMargin( 4, 0, 4, 4 )
         cpanel:AddItem( numSlider )
+
+        MakeHeader( cpanel, "Placement Type" )
+
+        local placementCombo = vgui.Create( "DComboBox", cpanel )
+        placementCombo:SetTextColor( color_black )
+
+        local PLACEMENT_LABELS = {
+            single = "Single point",
+            random = "Area — randomized",
+            grid   = "Area — grid",
+        }
+
+        for _, key in ipairs( { "single", "random", "grid" } ) do
+            placementCombo:AddChoice( PLACEMENT_LABELS[key], key )
+        end
+
+        local currentPlacement = GetConVar( "zgrad_point_tool_placement_type" )
+        local placementVal     = currentPlacement and currentPlacement:GetString() or "single"
+        placementCombo:SetValue( PLACEMENT_LABELS[placementVal] or PLACEMENT_LABELS.single )
+
+        placementCombo:Dock( TOP )
+        placementCombo:DockMargin( 4, 0, 4, 4 )
+        cpanel:AddItem( placementCombo )
+
+        local function MakeAreaSlider( label, convar, min, max, decimals )
+            local s = vgui.Create( "DNumSlider", cpanel )
+            s:SetText( label )
+            s:SetMinMax( min, max )
+            s:SetDecimals( decimals or 0 )
+            s:SetConVar( convar )
+            s:SetDark( true )
+            s:Dock( TOP )
+            s:DockMargin( 4, 0, 4, 2 )
+            cpanel:AddItem( s )
+            return s
+        end
+
+        local lenSlider     = MakeAreaSlider( "Length",       "zgrad_point_tool_area_length",      64, 2048, 0 )
+        local widthSlider   = MakeAreaSlider( "Width",        "zgrad_point_tool_area_width",       64, 2048, 0 )
+        local countSlider   = MakeAreaSlider( "Random count", "zgrad_point_tool_area_count",        1,  128, 0 )
+        local spacingSlider = MakeAreaSlider( "Grid spacing", "zgrad_point_tool_grid_spacing",     16,  512, 0 )
+        local minSpaceSlider = MakeAreaSlider( "Min spacing", "zgrad_point_tool_area_min_spacing",  0,  512, 0 )
+
+        local function ApplyPlacementVisibility( key )
+            local isArea = ( key == "random" ) or ( key == "grid" )
+            lenSlider:SetVisible(      isArea )
+            widthSlider:SetVisible(    isArea )
+            countSlider:SetVisible(    key == "random" )
+            spacingSlider:SetVisible(  key == "grid"   )
+            minSpaceSlider:SetVisible( isArea )
+            cpanel:InvalidateLayout()
+        end
+        ApplyPlacementVisibility( placementVal )
+
+        placementCombo.OnSelect = function( _, _, _, data )
+            RunConsoleCommand( "zgrad_point_tool_placement_type", data )
+            ApplyPlacementVisibility( data )
+        end
 
         MakeHeader( cpanel, "Controls" )
 

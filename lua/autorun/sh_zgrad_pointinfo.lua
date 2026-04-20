@@ -50,6 +50,28 @@ function ZGRAD.IsPointInWall( pos )
     return tr.StartSolid or tr.AllSolid
 end
 
+function ZGRAD.FindNearbyPoint( pos, minDist, ignoreDataKey, ignoreIndex )
+    local list = ZGRAD.SpawnPointsList
+    if not list then return nil end
+
+    local minSq = minDist * minDist
+    for dataKey, info in pairs( list ) do
+        local pts = info[3]
+        if not pts then continue end
+
+        for i = 1, #pts do
+            if dataKey == ignoreDataKey and i == ignoreIndex then continue end
+
+            local other = ZGRAD.ReadPoint( pts[i] )
+            if other and pos:DistToSqr( other[1] ) < minSq then
+                return { dataKey = dataKey, typeName = info[1], index = i, pos = other[1] }
+            end
+        end
+    end
+
+    return nil
+end
+
 function ZGRAD.FindIntersectingPoint( pos, typeName, ignoreDataKey, ignoreIndex )
     local list = ZGRAD.SpawnPointsList
     if not list then return nil end
@@ -122,6 +144,55 @@ function ZGRAD.SnapToGround( pos )
 
     if tr.StartSolid or not tr.Hit then return nil end
     return tr.HitPos + Vector( 0, 0, GROUND_OFFSET )
+end
+
+local MAX_GRID_POINTS   = 1024
+local RANDOM_ATTEMPTS_X = 30
+
+function ZGRAD.GetAreaGridPositions( center, yaw, length, width, spacing )
+    local positions = {}
+    spacing = math.max( 4, spacing )
+
+    local ang = Angle( 0, yaw, 0 )
+    local fwd = ang:Forward()
+    local rgt = ang:Right()
+
+    local numL = math.max( 1, math.floor( length / spacing ) + 1 )
+    local numW = math.max( 1, math.floor( width  / spacing ) + 1 )
+    if numL * numW > MAX_GRID_POINTS then
+        local scale = math.sqrt( ( numL * numW ) / MAX_GRID_POINTS )
+        numL = math.max( 1, math.floor( numL / scale ) )
+        numW = math.max( 1, math.floor( numW / scale ) )
+    end
+
+    local startL = -( numL - 1 ) * spacing * 0.5
+    local startW = -( numW - 1 ) * spacing * 0.5
+
+    for i = 0, numL - 1 do
+        for j = 0, numW - 1 do
+            local l = startL + i * spacing
+            local w = startW + j * spacing
+            positions[#positions + 1] = center + fwd * l + rgt * w
+        end
+    end
+
+    return positions
+end
+
+function ZGRAD.GetAreaRandomCandidates( center, yaw, length, width, count )
+    local positions = {}
+    local ang = Angle( 0, yaw, 0 )
+    local fwd = ang:Forward()
+    local rgt = ang:Right()
+
+    local attempts = count * RANDOM_ATTEMPTS_X
+    for _ = 1, attempts do
+        local l = ( math.random() - 0.5 ) * length
+        local w = ( math.random() - 0.5 ) * width
+        positions[#positions + 1] = center + fwd * l + rgt * w
+    end
+
+    return positions
 end
 
 function ZGRAD.ResolvePlacement( pos, typeName, ignoreDataKey, ignoreIndex )
