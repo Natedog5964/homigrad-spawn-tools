@@ -285,8 +285,12 @@ local function DrawGhostPreview()
         ignoreIdx = selectedPoint.index
     end
 
-    local blocked = ZGRAD.FindIntersectingPoint
-        and ZGRAD.FindIntersectingPoint( pos, typeName, ignoreKey, ignoreIdx ) ~= nil
+    local resolved = ZGRAD.ResolvePlacement
+        and ZGRAD.ResolvePlacement( pos, typeName, ignoreKey, ignoreIdx )
+
+    local shifted = resolved and resolved ~= pos and resolved:DistToSqr( pos ) > 0.25
+    local drawPos = resolved or pos
+    local blocked = not resolved
 
     local col        = blocked and BLOCKED_COLOR or ( typeColorCache[typeName] or color_white )
     local gameRadius = GetRadius( typeName )
@@ -295,15 +299,28 @@ local function DrawGhostPreview()
     render.SetColorMaterial()
 
     if typeName == "control_point" then
-        render.DrawWireframeSphere( pos, gameRadius, SPHERE_SEGS, SPHERE_SEGS,
+        render.DrawWireframeSphere( drawPos, gameRadius, SPHERE_SEGS, SPHERE_SEGS,
             MutColor( col, 25 ) )
-        DrawGroundRing( pos, gameRadius, MutColor( col, 160 ), 48 )
+        DrawGroundRing( drawPos, gameRadius, MutColor( col, 160 ), 48 )
     else
-        DrawGroundRing( pos, gameRadius, MutColor( col, 80 ), 16 )
+        DrawGroundRing( drawPos, gameRadius, MutColor( col, 80 ), 16 )
     end
 
-    render.DrawSphere( pos, 4, 8, 8, MutColor( col, 160 ) )
-    DrawDirectionArrow( pos, ang, MutColor( col, 160 ) )
+    render.DrawSphere( drawPos, 4, 8, 8, MutColor( col, 160 ) )
+    DrawDirectionArrow( drawPos, ang, MutColor( col, 160 ) )
+
+    if shifted then
+        render.SetColorMaterial()
+        local steps = 8
+        for s = 0, steps - 1, 2 do
+            render.DrawLine(
+                LerpVector( s / steps,         pos, drawPos ),
+                LerpVector( ( s + 1 ) / steps, pos, drawPos ),
+                MutColor( col, 110 ), true
+            )
+        end
+        render.DrawSphere( pos, 2, 6, 6, MutColor( col, 80 ) )
+    end
 
     if mode == "select" and selectedPoint and selectedPoint.pos then
         local from  = selectedPoint.pos
@@ -311,8 +328,8 @@ local function DrawGhostPreview()
         render.SetColorMaterial()
         for s = 0, steps - 1, 2 do
             render.DrawLine(
-                LerpVector( s / steps,       from, pos ),
-                LerpVector( ( s + 1 ) / steps, from, pos ),
+                LerpVector( s / steps,         from, drawPos ),
+                LerpVector( ( s + 1 ) / steps, from, drawPos ),
                 MutColor( col, 120 ), true
             )
         end

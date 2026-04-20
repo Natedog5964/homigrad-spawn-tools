@@ -71,9 +71,8 @@ if SERVER then
         return false
     end
 
-    local function NotifyBlocked( ply, pointType, hit )
-        ChatTell( ply, "Cannot place " .. pointType .. " here: overlaps " ..
-            hit.typeName .. " #" .. hit.index .. "." )
+    local function NotifyBlocked( ply, reason )
+        ChatTell( ply, "Cannot place point: " .. reason )
         net.Start( "zgrad_pt_place_deny" )
         net.Send( ply )
     end
@@ -85,13 +84,13 @@ if SERVER then
             return
         end
 
-        local hit = ZGRAD.FindIntersectingPoint( pos, pointType )
-        if hit then
-            NotifyBlocked( ply, pointType, hit )
+        local resolved = ZGRAD.ResolvePlacement( pos, pointType )
+        if not resolved then
+            NotifyBlocked( ply, "no clear space nearby." )
             return
         end
 
-        local point = { pos, ang, tonumber( pointNum ) }
+        local point = { resolved, ang, tonumber( pointNum ) }
         table.insert( ZGRAD.SpawnPointsList[dataKey][3], point )
         ZGRAD.WriteDataMap( dataKey, ZGRAD.SpawnPointsList[dataKey][3] )
 
@@ -138,13 +137,13 @@ if SERVER then
             return false
         end
 
-        local hit = ZGRAD.FindIntersectingPoint( newPos, pointType, dataKey, index )
-        if hit then
-            NotifyBlocked( ply, pointType, hit )
+        local resolved = ZGRAD.ResolvePlacement( newPos, pointType, dataKey, index )
+        if not resolved then
+            NotifyBlocked( ply, "no clear space nearby." )
             return false
         end
 
-        pts[index][1] = newPos
+        pts[index][1] = resolved
         pts[index][2] = newAng
         ZGRAD.WriteDataMap( dataKey, pts )
 
