@@ -300,18 +300,39 @@ if CLIENT then
         return true
     end )
 
-    local TEXT_WHITE = Color( 240, 240, 240 )
-    local TEXT_GRAY  = Color( 160, 160, 160 )
+    local HEADER_RULE = Color( 0, 0, 0, 40 )
 
     local function MakeHeader( panel, text )
+        local row = vgui.Create( "DPanel", panel )
+        row:SetTall( 16 )
+        row:Dock( TOP )
+        row:DockMargin( 6, 6, 6, 2 )
+        row.Paint = function( _, w, h )
+            surface.SetDrawColor( HEADER_RULE )
+            surface.DrawRect( 0, h - 1, w, 1 )
+        end
+
+        local lbl = vgui.Create( "DLabel", row )
+        lbl:SetText( string.upper( text ) )
+        lbl:SetFont( "DermaDefaultBold" )
+        lbl:SetDark( true )
+        lbl:SetContentAlignment( 4 )
+        lbl:Dock( FILL )
+
+        panel:AddItem( row )
+        return row
+    end
+
+    local function MakeHint( panel, text )
         local lbl = vgui.Create( "DLabel", panel )
         lbl:SetText( text )
-        lbl:SetFont( "DermaDefaultBold" )
-        lbl:SetTextColor( TEXT_WHITE )
-        lbl:SetContentAlignment( 5 )
-        lbl:SetTall( 22 )
+        lbl:SetFont( "DermaDefault" )
+        lbl:SetDark( true )
+        lbl:SetWrap( true )
+        lbl:SetAutoStretchVertical( true )
         lbl:Dock( TOP )
-        lbl:DockMargin( 4, 8, 4, 2 )
+        lbl:DockMargin( 6, 0, 6, 4 )
+        panel:AddItem( lbl )
         return lbl
     end
 
@@ -359,15 +380,7 @@ if CLIENT then
         placeCombo:DockMargin( 4, 0, 4, 2 )
         cpanel:AddItem( placeCombo )
 
-        local placeHint = vgui.Create( "DLabel", cpanel )
-        placeHint:SetText( "Use \"Self\" to place capture points\non elevated areas or in mid-air." )
-        placeHint:SetFont( "DermaDefault" )
-        placeHint:SetTextColor( TEXT_GRAY )
-        placeHint:SetWrap( true )
-        placeHint:SetAutoStretchVertical( true )
-        placeHint:Dock( TOP )
-        placeHint:DockMargin( 6, 0, 6, 4 )
-        cpanel:AddItem( placeHint )
+        MakeHint( cpanel, "Use \"Self\" to place capture points\non elevated areas or in mid-air." )
 
         MakeHeader( cpanel, "Point Type" )
 
@@ -397,29 +410,21 @@ if CLIENT then
 
         MakeHeader( cpanel, "Point Number / Index" )
 
-        local hint = vgui.Create( "DLabel", cpanel )
-        hint:SetText( "Used as control point index for CP mode\nor as a radius hint for visualization." )
-        hint:SetFont( "DermaDefault" )
-        hint:SetTextColor( TEXT_GRAY )
-        hint:SetWrap( true )
-        hint:SetAutoStretchVertical( true )
-        hint:Dock( TOP )
-        hint:DockMargin( 6, 0, 6, 2 )
-        cpanel:AddItem( hint )
+        MakeHint( cpanel, "Used as control point index for CP mode\nor as a radius hint for visualization." )
 
         local numSlider = vgui.Create( "DNumSlider", cpanel )
         numSlider:SetText( "Number" )
         numSlider:SetMinMax( 1, 32 )
         numSlider:SetDecimals( 0 )
         numSlider:SetConVar( "zgrad_point_tool_point_number" )
+        numSlider:SetDark( true )
         numSlider:Dock( TOP )
         numSlider:DockMargin( 4, 0, 4, 4 )
         cpanel:AddItem( numSlider )
 
         MakeHeader( cpanel, "Controls" )
 
-        local info = vgui.Create( "DLabel", cpanel )
-        info:SetText(
+        MakeHint( cpanel,
             "PLACE MODE\n" ..
             "  LMB (Surface): place at trace hit\n" ..
             "  LMB (Self): place at your feet\n\n" ..
@@ -427,15 +432,11 @@ if CLIENT then
             "  Left-click: select nearest point\n" ..
             "  Left-click again: move to cursor\n" ..
             "  Right-click: delete selected point\n" ..
-            "  R (Reload): deselect"
+            "  R (Reload): deselect\n\n" ..
+            "GENERAL\n" ..
+            "  Scroll: swap Place / Select mode\n" ..
+            "  Undo: remove last placed point"
         )
-        info:SetFont( "DermaDefault" )
-        info:SetTextColor( TEXT_GRAY )
-        info:SetWrap( true )
-        info:SetAutoStretchVertical( true )
-        info:Dock( TOP )
-        info:DockMargin( 6, 0, 6, 8 )
-        cpanel:AddItem( info )
     end
 
 end
