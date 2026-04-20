@@ -49,6 +49,28 @@ if SERVER then
         end
     end
 
+    local function UndoAddedPoint( _, dataKey, pointRef, pointType, ply )
+        local pts = ZGRAD.SpawnPointsList[dataKey] and ZGRAD.SpawnPointsList[dataKey][3]
+        if not pts then return false end
+
+        for i = 1, #pts do
+            if pts[i] == pointRef then
+                if pts[i][4] then
+                    ChatTell( ply, "Hammer-placed points cannot be undone." )
+                    return false
+                end
+
+                table.remove( pts, i )
+                ZGRAD.WriteDataMap( dataKey, pts )
+                ZGRAD.SendSpawnPoint()
+                ChatTellAll( ply, "undid " .. pointType .. " point placement." )
+                return
+            end
+        end
+
+        return false
+    end
+
     local function DoAdd( ply, pointType, pos, ang, pointNum )
         local dataKey = DataKeyForType( pointType )
         if not dataKey then
@@ -62,6 +84,14 @@ if SERVER then
 
         ZGRAD.SendSpawnPoint()
         ChatTellAll( ply, "added a " .. pointType .. " point to the map." )
+
+        if IsValid( ply ) then
+            undo.Create( "zgrad_point" )
+                undo.SetPlayer( ply )
+                undo.AddFunction( UndoAddedPoint, dataKey, point, pointType, ply )
+                undo.SetCustomUndoText( "Undone ZGRAD " .. pointType .. " point" )
+            undo.Finish( "ZGRAD " .. pointType .. " point" )
+        end
     end
 
     local function DoRemove( ply, pointType, index )
