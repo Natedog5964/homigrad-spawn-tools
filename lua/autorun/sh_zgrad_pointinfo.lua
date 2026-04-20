@@ -149,7 +149,14 @@ end
 local MAX_GRID_POINTS   = 1024
 local RANDOM_ATTEMPTS_X = 30
 
-function ZGRAD.GetAreaGridPositions( center, yaw, length, width, spacing )
+local function GridDimsFromCount( targetCount, length, width )
+    local ratio = math.max( length, 1 ) / math.max( width, 1 )
+    local numL  = math.max( 1, math.floor( math.sqrt( targetCount * ratio ) + 0.5 ) )
+    local numW  = math.max( 1, math.ceil( targetCount / numL ) )
+    return numL, numW
+end
+
+function ZGRAD.GetAreaGridPositions( center, yaw, length, width, spacing, targetCount )
     local positions = {}
     spacing = math.max( 4, spacing )
 
@@ -159,19 +166,40 @@ function ZGRAD.GetAreaGridPositions( center, yaw, length, width, spacing )
 
     local numL = math.max( 1, math.floor( length / spacing ) + 1 )
     local numW = math.max( 1, math.floor( width  / spacing ) + 1 )
+
+    local natural = numL * numW
+    local useSpacing = true
+
+    if targetCount and targetCount > 0 and targetCount < natural then
+        numL, numW = GridDimsFromCount( targetCount, length, width )
+        useSpacing = false
+    end
+
     if numL * numW > MAX_GRID_POINTS then
         local scale = math.sqrt( ( numL * numW ) / MAX_GRID_POINTS )
         numL = math.max( 1, math.floor( numL / scale ) )
         numW = math.max( 1, math.floor( numW / scale ) )
+        useSpacing = false
     end
 
-    local startL = -( numL - 1 ) * spacing * 0.5
-    local startW = -( numW - 1 ) * spacing * 0.5
+    local stepL, startL
+    local stepW, startW
+    if useSpacing then
+        stepL  = spacing
+        stepW  = spacing
+        startL = -( numL - 1 ) * spacing * 0.5
+        startW = -( numW - 1 ) * spacing * 0.5
+    else
+        stepL  = ( numL > 1 ) and ( length / numL ) or 0
+        stepW  = ( numW > 1 ) and ( width  / numW ) or 0
+        startL = -length * 0.5 + stepL * 0.5
+        startW = -width  * 0.5 + stepW * 0.5
+    end
 
     for i = 0, numL - 1 do
         for j = 0, numW - 1 do
-            local l = startL + i * spacing
-            local w = startW + j * spacing
+            local l = startL + i * stepL
+            local w = startW + j * stepW
             positions[#positions + 1] = center + fwd * l + rgt * w
         end
     end

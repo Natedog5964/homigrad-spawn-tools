@@ -333,6 +333,7 @@ local function GetCachedAreaPoints( ply, center, yaw, placementType, typeName )
     local nowLength     = ply:GetInfoNum( "zgrad_point_tool_area_length", 512 )
     local nowWidth      = ply:GetInfoNum( "zgrad_point_tool_area_width",  512 )
     local nowGrid       = ply:GetInfoNum( "zgrad_point_tool_grid_spacing", 64 )
+    local nowMaxCount   = ply:GetInfoNum( "zgrad_point_tool_area_count", 16 )
 
     local now = RealTime()
     if areaCache.time >= 0
@@ -344,6 +345,7 @@ local function GetCachedAreaPoints( ply, center, yaw, placementType, typeName )
         and areaCache.length      == nowLength
         and areaCache.width       == nowWidth
         and areaCache.gridSpacing == nowGrid
+        and areaCache.maxCount    == nowMaxCount
         and areaCache.center:DistToSqr( center ) < AREA_CACHE_DIST_SQ
     then
         return areaCache.points
@@ -352,13 +354,14 @@ local function GetCachedAreaPoints( ply, center, yaw, placementType, typeName )
     local length     = ply:GetInfoNum( "zgrad_point_tool_area_length", 512 )
     local width      = ply:GetInfoNum( "zgrad_point_tool_area_width",  512 )
     local minSpacing = math.max( 0, ply:GetInfoNum( "zgrad_point_tool_area_min_spacing", 64 ) )
+    local maxCount   = math.max( 1, math.floor( ply:GetInfoNum( "zgrad_point_tool_area_count", 16 ) ) )
     local snap       = ply:GetInfoNum( "zgrad_point_tool_snap_ground", 0 ) >= 1
     local minSq      = minSpacing * minSpacing
 
     local raw
     if placementType == "grid" then
         local spacing = math.max( 8, ply:GetInfoNum( "zgrad_point_tool_grid_spacing", 64 ) )
-        raw = ZGRAD.GetAreaGridPositions( center, yaw, length, width, spacing )
+        raw = ZGRAD.GetAreaGridPositions( center, yaw, length, width, spacing, maxCount )
     else
         raw = {}
     end
@@ -391,6 +394,8 @@ local function GetCachedAreaPoints( ply, center, yaw, placementType, typeName )
             end
         end
 
+        if ok and #batch >= maxCount then ok = false end
+
         result[#result + 1] = { pos = pos, ok = ok }
         if ok then batch[#batch + 1] = pos end
     end
@@ -403,6 +408,7 @@ local function GetCachedAreaPoints( ply, center, yaw, placementType, typeName )
     areaCache.length      = nowLength
     areaCache.width       = nowWidth
     areaCache.gridSpacing = nowGrid
+    areaCache.maxCount    = nowMaxCount
     areaCache.center      = Vector( center )
     areaCache.points      = result
     return result

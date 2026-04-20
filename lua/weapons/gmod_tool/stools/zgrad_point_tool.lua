@@ -283,18 +283,17 @@ if SERVER then
                 local width  = math.max( 32, self:GetClientNumber( "area_width",  512 ) )
 
                 local minSpacing = math.max( 0, self:GetClientNumber( "area_min_spacing", 64 ) )
+                local count      = math.max( 1, math.floor( self:GetClientNumber( "area_count", 16 ) ) )
 
-                local candidates, limit
+                local candidates
                 if placementType == "grid" then
                     local spacing = math.max( 8, self:GetClientNumber( "grid_spacing", 64 ) )
-                    candidates = ZGRAD.GetAreaGridPositions( center, yaw, length, width, spacing )
+                    candidates = ZGRAD.GetAreaGridPositions( center, yaw, length, width, spacing, count )
                 else
-                    local count = math.max( 1, math.floor( self:GetClientNumber( "area_count", 16 ) ) )
                     candidates = ZGRAD.GetAreaRandomCandidates( center, yaw, length, width, count )
-                    limit      = count
                 end
 
-                DoAddArea( ply, pointType, candidates, ang, pointNum, snapGround, limit, minSpacing )
+                DoAddArea( ply, pointType, candidates, ang, pointNum, snapGround, count, minSpacing )
             end
 
         elseif mode == "select" then
@@ -594,18 +593,18 @@ if CLIENT then
             return s
         end
 
-        local lenSlider     = MakeAreaSlider( "Length",       "zgrad_point_tool_area_length",      64, 2048, 0 )
-        local widthSlider   = MakeAreaSlider( "Width",        "zgrad_point_tool_area_width",       64, 2048, 0 )
-        local countSlider   = MakeAreaSlider( "Random count", "zgrad_point_tool_area_count",        1,  128, 0 )
-        local spacingSlider = MakeAreaSlider( "Grid spacing", "zgrad_point_tool_grid_spacing",     16,  512, 0 )
+        local lenSlider      = MakeAreaSlider( "Length",      "zgrad_point_tool_area_length",      64, 2048, 0 )
+        local widthSlider    = MakeAreaSlider( "Width",       "zgrad_point_tool_area_width",       64, 2048, 0 )
+        local countSlider    = MakeAreaSlider( "Max points",  "zgrad_point_tool_area_count",        1,  256, 0 )
+        local spacingSlider  = MakeAreaSlider( "Grid spacing", "zgrad_point_tool_grid_spacing",    16,  512, 0 )
         local minSpaceSlider = MakeAreaSlider( "Min spacing", "zgrad_point_tool_area_min_spacing",  0,  512, 0 )
 
         local function ApplyPlacementVisibility( key )
             local isArea = ( key == "random" ) or ( key == "grid" )
             lenSlider:SetVisible(      isArea )
             widthSlider:SetVisible(    isArea )
-            countSlider:SetVisible(    key == "random" )
-            spacingSlider:SetVisible(  key == "grid"   )
+            countSlider:SetVisible(    isArea )
+            spacingSlider:SetVisible(  key == "grid" )
             minSpaceSlider:SetVisible( isArea )
             cpanel:InvalidateLayout()
         end
