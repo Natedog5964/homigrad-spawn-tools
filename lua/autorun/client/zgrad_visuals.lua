@@ -1,4 +1,4 @@
-local TOOL_NAME         = "zgrad_point_tool"
+local TOOL_NAME         = "hg_point_tool"
 local HOVER_RADIUS_SQ   = 160 * 160
 local SPHERE_SEGS       = 12
 
@@ -14,7 +14,7 @@ local HAMMER_COLOR      = Color( 120, 120, 120 )
 local BLOCKED_COLOR     = Color( 255, 60, 60 )
 
 local function GetRadius( typeName )
-    return ZGRAD.GetPointRadius and ZGRAD.GetPointRadius( typeName ) or 24
+    return GetPointRadius and GetPointRadius( typeName ) or 24
 end
 
 local ARROW_LENGTH     = 40
@@ -44,7 +44,7 @@ local function RebuildCache()
     pointCache    = {}
     typeColorCache = {}
 
-    for dataKey, info in pairs( ZGRAD.SpawnPointsList or {} ) do
+    for dataKey, info in pairs( SpawnPointsList or {} ) do
         local typeName   = info[1]
         local baseColor  = info[2]
         local pts        = info[3]
@@ -55,7 +55,7 @@ local function RebuildCache()
         if not pts then continue end
 
         for i, rawPt in ipairs( pts ) do
-            local p = ZGRAD.ReadPoint( rawPt )
+            local p = ReadPoint( rawPt )
             if not p then continue end
 
             pointCache[#pointCache + 1] = {
@@ -73,23 +73,23 @@ local function RebuildCache()
 end
 
 local function DataKeyForShortName( shortName )
-    for k, info in pairs( ZGRAD.SpawnPointsList or {} ) do
+    for k, info in pairs( SpawnPointsList or {} ) do
         if info[1] == shortName then return k end
     end
 end
 
-net.Receive( "zgrad_pt_select", function()
+net.Receive( "hg_pt_select", function()
     local pointType = net.ReadString()
     local index     = net.ReadUInt( 16 )
 
     local key  = DataKeyForShortName( pointType )
-    local info = key and ZGRAD.SpawnPointsList and ZGRAD.SpawnPointsList[key]
+    local info = key and SpawnPointsList and SpawnPointsList[key]
     if not info then return end
 
     local pts = info[3]
     if not pts or not pts[index] then return end
 
-    local p = ZGRAD.ReadPoint( pts[index] )
+    local p = ReadPoint( pts[index] )
     selectedPoint = {
         pointType = pointType,
         index     = index,
@@ -98,12 +98,12 @@ net.Receive( "zgrad_pt_select", function()
     }
 end )
 
-net.Receive( "zgrad_pt_select_deny", function()
+net.Receive( "hg_pt_select_deny", function()
     surface.PlaySound( "buttons/button10.wav" )
-    chat.AddText( Color( 255, 80, 80 ), "[ZGRAD]", color_white, " Cannot select Hammer-placed points." )
+    chat.AddText( Color( 255, 80, 80 ), "[Homigrad]", color_white, " Cannot select Hammer-placed points." )
 end )
 
-net.Receive( "zgrad_pt_place_deny", function()
+net.Receive( "hg_pt_place_deny", function()
     surface.PlaySound( "buttons/button10.wav" )
 end )
 
@@ -253,7 +253,7 @@ end
 
 local function GetPlacementPos( ply )
     local base
-    if ply:GetInfo( "zgrad_point_tool_place_mode" ) == "self" then
+    if ply:GetInfo( "hg_point_tool_place_mode" ) == "self" then
         base = ply:GetPos()
     else
         local tr = util.TraceLine({
@@ -265,8 +265,8 @@ local function GetPlacementPos( ply )
         base = tr.HitPos + Vector( 0, 0, 5 )
     end
 
-    if ply:GetInfoNum( "zgrad_point_tool_snap_ground", 0 ) >= 1 and ZGRAD.SnapToGround then
-        local snapped = ZGRAD.SnapToGround( base )
+    if ply:GetInfoNum( "hg_point_tool_snap_ground", 0 ) >= 1 and SnapToGround then
+        local snapped = SnapToGround( base )
         if snapped then return snapped end
     end
 
@@ -278,7 +278,7 @@ local GHOST_CACHE_TTL     = 0.1
 local ghostCache          = { time = -1 }
 
 local function CachedResolvePlacement( pos, typeName, ignoreKey, ignoreIdx )
-    if not ZGRAD.ResolvePlacement then return nil end
+    if not ResolvePlacement then return nil end
 
     local now = RealTime()
     if ghostCache.time >= 0
@@ -291,7 +291,7 @@ local function CachedResolvePlacement( pos, typeName, ignoreKey, ignoreIdx )
         return ghostCache.resolved
     end
 
-    local resolved = ZGRAD.ResolvePlacement( pos, typeName, ignoreKey, ignoreIdx )
+    local resolved = ResolvePlacement( pos, typeName, ignoreKey, ignoreIdx )
     ghostCache.time      = now
     ghostCache.pos       = Vector( pos )
     ghostCache.type      = typeName
@@ -329,11 +329,11 @@ local AREA_CACHE_TTL      = 0.15
 local AREA_CACHE_DIST_SQ  = 64
 
 local function GetCachedAreaPoints( ply, center, yaw, placementType, typeName )
-    local nowMinSpacing = ply:GetInfoNum( "zgrad_point_tool_area_min_spacing", 64 )
-    local nowLength     = ply:GetInfoNum( "zgrad_point_tool_area_length", 512 )
-    local nowWidth      = ply:GetInfoNum( "zgrad_point_tool_area_width",  512 )
-    local nowGrid       = ply:GetInfoNum( "zgrad_point_tool_grid_spacing", 64 )
-    local nowMaxCount   = ply:GetInfoNum( "zgrad_point_tool_area_count", 16 )
+    local nowMinSpacing = ply:GetInfoNum( "hg_point_tool_area_min_spacing", 64 )
+    local nowLength     = ply:GetInfoNum( "hg_point_tool_area_length", 512 )
+    local nowWidth      = ply:GetInfoNum( "hg_point_tool_area_width",  512 )
+    local nowGrid       = ply:GetInfoNum( "hg_point_tool_grid_spacing", 64 )
+    local nowMaxCount   = ply:GetInfoNum( "hg_point_tool_area_count", 16 )
 
     local now = RealTime()
     if areaCache.time >= 0
@@ -351,17 +351,17 @@ local function GetCachedAreaPoints( ply, center, yaw, placementType, typeName )
         return areaCache.points
     end
 
-    local length     = ply:GetInfoNum( "zgrad_point_tool_area_length", 512 )
-    local width      = ply:GetInfoNum( "zgrad_point_tool_area_width",  512 )
-    local minSpacing = math.max( 0, ply:GetInfoNum( "zgrad_point_tool_area_min_spacing", 64 ) )
-    local maxCount   = math.max( 1, math.floor( ply:GetInfoNum( "zgrad_point_tool_area_count", 16 ) ) )
-    local snap       = ply:GetInfoNum( "zgrad_point_tool_snap_ground", 0 ) >= 1
+    local length     = ply:GetInfoNum( "hg_point_tool_area_length", 512 )
+    local width      = ply:GetInfoNum( "hg_point_tool_area_width",  512 )
+    local minSpacing = math.max( 0, ply:GetInfoNum( "hg_point_tool_area_min_spacing", 64 ) )
+    local maxCount   = math.max( 1, math.floor( ply:GetInfoNum( "hg_point_tool_area_count", 16 ) ) )
+    local snap       = ply:GetInfoNum( "hg_point_tool_snap_ground", 0 ) >= 1
     local minSq      = minSpacing * minSpacing
 
     local raw
     if placementType == "grid" then
-        local spacing = math.max( 8, ply:GetInfoNum( "zgrad_point_tool_grid_spacing", 64 ) )
-        raw = ZGRAD.GetAreaGridPositions( center, yaw, length, width, spacing, maxCount )
+        local spacing = math.max( 8, ply:GetInfoNum( "hg_point_tool_grid_spacing", 64 ) )
+        raw = GetAreaGridPositions( center, yaw, length, width, spacing, maxCount )
     else
         raw = {}
     end
@@ -371,19 +371,19 @@ local function GetCachedAreaPoints( ply, center, yaw, placementType, typeName )
     for _, p in ipairs( raw ) do
         local pos = p
         if snap then
-            pos = ZGRAD.SnapToGround( p ) or p
+            pos = SnapToGround( p ) or p
         end
 
-        local ok = not ZGRAD.IsPointInWall( pos )
-            and not ZGRAD.FindIntersectingPoint( pos, typeName )
+        local ok = not IsPointInWall( pos )
+            and not FindIntersectingPoint( pos, typeName )
 
-        if ok and minSpacing > 0 and ZGRAD.FindNearbyPoint( pos, minSpacing ) then
+        if ok and minSpacing > 0 and FindNearbyPoint( pos, minSpacing ) then
             ok = false
         end
 
         if ok then
             for _, other in ipairs( batch ) do
-                if ZGRAD.PointsIntersect( pos, typeName, other, typeName ) then
+                if PointsIntersect( pos, typeName, other, typeName ) then
                     ok = false
                     break
                 end
@@ -416,11 +416,11 @@ end
 
 local function DrawGhostPreview()
     local ply  = LocalPlayer()
-    local mode = ply:GetInfo( "zgrad_point_tool_mode" )
+    local mode = ply:GetInfo( "hg_point_tool_mode" )
 
     local typeName, pos
     if mode == "place" then
-        typeName = ply:GetInfo( "zgrad_point_tool_point_type" )
+        typeName = ply:GetInfo( "hg_point_tool_point_type" )
         pos = GetPlacementPos( ply )
     elseif mode == "select" and selectedPoint then
         typeName = selectedPoint.pointType
@@ -429,11 +429,11 @@ local function DrawGhostPreview()
 
     if not pos then return end
 
-    local placementType = mode == "place" and ply:GetInfo( "zgrad_point_tool_placement_type" ) or "single"
+    local placementType = mode == "place" and ply:GetInfo( "hg_point_tool_placement_type" ) or "single"
     if placementType == "random" or placementType == "grid" then
         local baseCol = typeColorCache[typeName] or color_white
-        local length  = ply:GetInfoNum( "zgrad_point_tool_area_length", 512 )
-        local width   = ply:GetInfoNum( "zgrad_point_tool_area_width",  512 )
+        local length  = ply:GetInfoNum( "hg_point_tool_area_length", 512 )
+        local width   = ply:GetInfoNum( "hg_point_tool_area_width",  512 )
         local yaw     = ply:EyeAngles().y
 
         DrawAreaRectangle( pos, yaw, length, width, MutColor( baseCol, 180 ) )
@@ -554,30 +554,30 @@ local function DrawScreenLabels()
     end
 end
 
-hook.Add( "PlayerButtonDown", "ZGrad_PointToolSelectInput", function( ply, button )
+hook.Add( "PlayerButtonDown", "hg_PointToolSelectInput", function( ply, button )
     if ply ~= LocalPlayer() then return end
     if not IsToolActive() then return end
     if button ~= MOUSE_LEFT then return end
-    if ply:GetInfo( "zgrad_point_tool_mode" ) ~= "select" then return end
+    if ply:GetInfo( "hg_point_tool_mode" ) ~= "select" then return end
     if selectedPoint then return end
 
     local nearest = FindClosestPointToScreen( ScrW() / 2, ScrH() / 2, HOVER_RADIUS_SQ * 4 )
     if not nearest then return end
 
-    net.Start( "zgrad_pt_select_sv" )
+    net.Start( "hg_pt_select_sv" )
         net.WriteString( nearest.typeName )
         net.WriteUInt( nearest.dataIndex, 16 )
     net.SendToServer()
 end )
 
-hook.Add( "PlayerButtonDown", "ZGrad_PointToolDeselect", function( ply, button )
+hook.Add( "PlayerButtonDown", "hg_PointToolDeselect", function( ply, button )
     if ply ~= LocalPlayer() then return end
     if not IsToolActive() then return end
     if button ~= KEY_R then return end
     selectedPoint = nil
 end )
 
-hook.Add( "WeaponEquipped", "ZGrad_PointToolClearOnSwitch", function( wep, ply )
+hook.Add( "WeaponEquipped", "hg_PointToolClearOnSwitch", function( wep, ply )
     if not IsValid( ply ) or ply ~= LocalPlayer() then return end
     if IsValid( wep ) and wep:GetClass() ~= "gmod_tool" then
         selectedPoint = nil
@@ -585,13 +585,13 @@ hook.Add( "WeaponEquipped", "ZGrad_PointToolClearOnSwitch", function( wep, ply )
     end
 end )
 
-hook.Add( "ZGrad_SpawnPointsUpdated", "ZGrad_ClearOnSpawnPointsUpdate", function()
+hook.Add( "hg_SpawnPointsUpdated", "hg_ClearOnSpawnPointsUpdate", function()
     selectedPoint = nil
     hoveredPoint  = nil
     RebuildCache()
 end )
 
-hook.Add( "PostDrawTranslucentRenderables", "ZGrad_PointToolDraw3D", function( bDepth, bSkybox )
+hook.Add( "PostDrawTranslucentRenderables", "hg_PointToolDraw3D", function( bDepth, bSkybox )
     if bDepth or bSkybox then return end
     if not IsToolActive() then return end
 
@@ -607,15 +607,15 @@ hook.Add( "PostDrawTranslucentRenderables", "ZGrad_PointToolDraw3D", function( b
     DrawGhostPreview()
 end )
 
-hook.Add( "HUDPaint", "ZGrad_PointToolDraw2D", function()
+hook.Add( "HUDPaint", "hg_PointToolDraw2D", function()
     if not IsToolActive() then return end
 
     DrawScreenLabels()
 
     local ply       = LocalPlayer()
-    local mode      = ply:GetInfo( "zgrad_point_tool_mode" )
-    local placeMode = ply:GetInfo( "zgrad_point_tool_place_mode" )
-    local typeName  = ply:GetInfo( "zgrad_point_tool_point_type" )
+    local mode      = ply:GetInfo( "hg_point_tool_mode" )
+    local placeMode = ply:GetInfo( "hg_point_tool_place_mode" )
+    local typeName  = ply:GetInfo( "hg_point_tool_point_type" )
     local sw, sh    = ScrW(), ScrH()
 
     local originTxt = placeMode == "self" and "Self" or "Surface"

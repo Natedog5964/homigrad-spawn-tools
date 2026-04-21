@@ -1,28 +1,28 @@
-ZGRAD = ZGRAD or {}
+hg = hg or {}
 
-ZGRAD.PointRadii = {
+PointRadii = {
     control_point = 256,
     boxspawn      = 48,
 }
 
-ZGRAD.DefaultPointRadius = 24
+DefaultPointRadius = 24
 
-ZGRAD.PointIntersectRadii = {
+PointIntersectRadii = {
     control_point = 32,
     boxspawn      = 48,
 }
 
-function ZGRAD.GetPointRadius( typeName )
-    return ZGRAD.PointRadii[typeName] or ZGRAD.DefaultPointRadius
+function GetPointRadius( typeName )
+    return PointRadii[typeName] or DefaultPointRadius
 end
 
-function ZGRAD.GetPointIntersectRadius( typeName )
-    return ZGRAD.PointIntersectRadii[typeName] or ZGRAD.DefaultPointRadius
+function GetPointIntersectRadius( typeName )
+    return PointIntersectRadii[typeName] or DefaultPointRadius
 end
 
-function ZGRAD.PointsIntersect( posA, typeA, posB, typeB )
-    local rA = ZGRAD.GetPointIntersectRadius( typeA )
-    local rB = ZGRAD.GetPointIntersectRadius( typeB )
+function PointsIntersect( posA, typeA, posB, typeB )
+    local rA = GetPointIntersectRadius( typeA )
+    local rB = GetPointIntersectRadius( typeB )
     local minSep = rA + rB
     return posA:DistToSqr( posB ) < ( minSep * minSep )
 end
@@ -36,7 +36,7 @@ local GROUND_OFFSET     = 5
 local GROUND_HULL_MINS  = Vector( -4, -4, 0 )
 local GROUND_HULL_MAXS  = Vector(  4,  4, 1 )
 
-function ZGRAD.IsPointInWall( pos )
+function IsPointInWall( pos )
     if util.IsInWorld and not util.IsInWorld( pos ) then return true end
 
     local tr = util.TraceHull( {
@@ -50,8 +50,8 @@ function ZGRAD.IsPointInWall( pos )
     return tr.StartSolid or tr.AllSolid
 end
 
-function ZGRAD.FindNearbyPoint( pos, minDist, ignoreDataKey, ignoreIndex )
-    local list = ZGRAD.SpawnPointsList
+function FindNearbyPoint( pos, minDist, ignoreDataKey, ignoreIndex )
+    local list = SpawnPointsList
     if not list then return nil end
 
     local minSq = minDist * minDist
@@ -62,7 +62,7 @@ function ZGRAD.FindNearbyPoint( pos, minDist, ignoreDataKey, ignoreIndex )
         for i = 1, #pts do
             if dataKey == ignoreDataKey and i == ignoreIndex then continue end
 
-            local other = ZGRAD.ReadPoint( pts[i] )
+            local other = ReadPoint( pts[i] )
             if other and pos:DistToSqr( other[1] ) < minSq then
                 return { dataKey = dataKey, typeName = info[1], index = i, pos = other[1] }
             end
@@ -72,8 +72,8 @@ function ZGRAD.FindNearbyPoint( pos, minDist, ignoreDataKey, ignoreIndex )
     return nil
 end
 
-function ZGRAD.FindIntersectingPoint( pos, typeName, ignoreDataKey, ignoreIndex )
-    local list = ZGRAD.SpawnPointsList
+function FindIntersectingPoint( pos, typeName, ignoreDataKey, ignoreIndex )
+    local list = SpawnPointsList
     if not list then return nil end
 
     for dataKey, info in pairs( list ) do
@@ -84,10 +84,10 @@ function ZGRAD.FindIntersectingPoint( pos, typeName, ignoreDataKey, ignoreIndex 
         for i = 1, #pts do
             if dataKey == ignoreDataKey and i == ignoreIndex then continue end
 
-            local other = ZGRAD.ReadPoint( pts[i] )
+            local other = ReadPoint( pts[i] )
             if not other then continue end
 
-            if ZGRAD.PointsIntersect( pos, typeName, other[1], otherType ) then
+            if PointsIntersect( pos, typeName, other[1], otherType ) then
                 return { dataKey = dataKey, typeName = otherType, index = i, pos = other[1] }
             end
         end
@@ -111,26 +111,26 @@ for i = 0, WALL_ANGLES - 1 do
 end
 
 local function FindWallClearance( pos )
-    if not ZGRAD.IsPointInWall( pos ) then return pos end
+    if not IsPointInWall( pos ) then return pos end
 
     for r = WALL_STEP, WALL_MAX_OUT, WALL_STEP do
         for _, d in ipairs( WALL_DIRS ) do
             local test = Vector( pos.x + d[1] * r, pos.y + d[2] * r, pos.z )
-            if not ZGRAD.IsPointInWall( test ) then
+            if not IsPointInWall( test ) then
                 return test
             end
         end
 
         if r <= WALL_MAX_UP then
             local up = Vector( pos.x, pos.y, pos.z + r )
-            if not ZGRAD.IsPointInWall( up ) then return up end
+            if not IsPointInWall( up ) then return up end
         end
     end
 
     return nil
 end
 
-function ZGRAD.SnapToGround( pos )
+function SnapToGround( pos )
     local basePos = FindWallClearance( pos )
     if not basePos then return nil end
 
@@ -156,7 +156,7 @@ local function GridDimsFromCount( targetCount, length, width )
     return numL, numW
 end
 
-function ZGRAD.GetAreaGridPositions( center, yaw, length, width, spacing, targetCount )
+function GetAreaGridPositions( center, yaw, length, width, spacing, targetCount )
     local positions = {}
     spacing = math.max( 4, spacing )
 
@@ -207,7 +207,7 @@ function ZGRAD.GetAreaGridPositions( center, yaw, length, width, spacing, target
     return positions
 end
 
-function ZGRAD.GetAreaRandomCandidates( center, yaw, length, width, count )
+function GetAreaRandomCandidates( center, yaw, length, width, count )
     local positions = {}
     local ang = Angle( 0, yaw, 0 )
     local fwd = ang:Forward()
@@ -223,18 +223,18 @@ function ZGRAD.GetAreaRandomCandidates( center, yaw, length, width, count )
     return positions
 end
 
-function ZGRAD.ResolvePlacement( pos, typeName, ignoreDataKey, ignoreIndex )
+function ResolvePlacement( pos, typeName, ignoreDataKey, ignoreIndex )
     local current = Vector( pos )
 
     for _ = 1, RESOLVE_ITERS do
         if current:DistToSqr( pos ) > MAX_DRIFT_SQ then return nil end
 
-        if ZGRAD.IsPointInWall( current ) then
+        if IsPointInWall( current ) then
             local cleared = FindWallClearance( current )
             if not cleared then return nil end
             current = cleared
         else
-            local hit = ZGRAD.FindIntersectingPoint( current, typeName, ignoreDataKey, ignoreIndex )
+            local hit = FindIntersectingPoint( current, typeName, ignoreDataKey, ignoreIndex )
             if not hit then return current end
 
             local dx = current.x - hit.pos.x
@@ -248,8 +248,8 @@ function ZGRAD.ResolvePlacement( pos, typeName, ignoreDataKey, ignoreIndex )
                 dy = dy * invLen
             end
 
-            local rA = ZGRAD.GetPointIntersectRadius( typeName )
-            local rB = ZGRAD.GetPointIntersectRadius( hit.typeName )
+            local rA = GetPointIntersectRadius( typeName )
+            local rB = GetPointIntersectRadius( hit.typeName )
             local needed = rA + rB + 0.5
 
             current = Vector( hit.pos.x + dx * needed, hit.pos.y + dy * needed, current.z )

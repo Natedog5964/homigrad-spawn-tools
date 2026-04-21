@@ -1,9 +1,9 @@
-ZGRAD = ZGRAD or {}
-if ZGRAD.ReadPoint then return end
+hg = hg or {}
+if ReadPoint then return end
 
 local angZero = Angle( 0, 0, 0 )
 
-function ZGRAD.ReadPoint( point )
+function ReadPoint( point )
     if isvector( point ) then
         return { point, angZero }
     elseif istable( point ) then

@@ -1,9 +1,9 @@
-ZGRAD = ZGRAD or {}
-if net.Receivers and net.Receivers["zgrad_spawn_points"] then return end
+hg = hg or {}
+if net.Receivers and net.Receivers["hg_spawn_points"] then return end
 
-ZGRAD.SpawnPointsList = ZGRAD.SpawnPointsList or {}
+SpawnPointsList = SpawnPointsList or {}
 
-net.Receive( "zgrad_spawn_points", function()
+net.Receive( "hg_spawn_points", function()
     ZGRAD.SpawnPointsList = net.ReadTable()
-    hook.Run( "ZGrad_SpawnPointsUpdated" )
+    hook.Run( "hg_SpawnPointsUpdated" )
 end )

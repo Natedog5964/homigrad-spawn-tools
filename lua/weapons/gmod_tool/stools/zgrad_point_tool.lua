@@ -1,5 +1,5 @@
-TOOL.Category   = "ZGRAD Mapping"
-TOOL.Name       = "#zgrad_point_tool"
+TOOL.Category   = "Homigrad Mapping"
+TOOL.Name       = "#hg_point_tool"
 TOOL.Command    = nil
 TOOL.ConfigName = ""
 
@@ -20,23 +20,23 @@ if SERVER then
         return ply:IsAdmin() or ply:IsSuperAdmin() or ply:GetUserGroup() == "operator"
     end
 
-    hook.Add( "CanTool", "ZGrad_PointToolCanTool", function( ply, tr, toolname )
-        if toolname == "zgrad_point_tool" then
+    hook.Add( "CanTool", "hg_PointToolCanTool", function( ply, tr, toolname )
+        if toolname == "hg_point_tool" then
             return IsAuthorized( ply ) or nil
         end
     end )
 
     local function PointToolClearSelect( ply )
-        if ply.ZGrad then ply.ZGrad.ptSelect = nil end
+        if ply then ply.ptSelect = nil end
     end
 
     local function PointToolGetSelect( ply )
-        return ply.ZGrad and ply.ZGrad.ptSelect
+        return ply and ply.ptSelect
     end
 
     local function PointToolSetSelect( ply, pointType, index )
-        ply.ZGrad = ply.ZGrad or {}
-        ply.ZGrad.ptSelect = { pointType = pointType, index = index }
+        ply = ply or {}
+        ply.ptSelect = { pointType = pointType, index = index }
     end
 
     local function ChatTell( ply, msg )
@@ -51,13 +51,13 @@ if SERVER then
     end
 
     local function DataKeyForType( shortName )
-        for k, info in pairs( ZGRAD.SpawnPointsList ) do
+        for k, info in pairs( SpawnPointsList ) do
             if info[1] == shortName then return k end
         end
     end
 
     local function UndoAddedPoints( _, dataKey, pointRefs, pointType, ply )
-        local pts = ZGRAD.SpawnPointsList[dataKey] and ZGRAD.SpawnPointsList[dataKey][3]
+        local pts = SpawnPointsList[dataKey] and SpawnPointsList[dataKey][3]
         if not pts then return false end
 
         local removed = 0
@@ -83,8 +83,8 @@ if SERVER then
 
         if removed == 0 then return false end
 
-        ZGRAD.WriteDataMap( dataKey, pts )
-        ZGRAD.SendSpawnPoint()
+        WriteDataMap( dataKey, pts )
+        SendSpawnPoint()
 
         local label = ( removed == 1 )
             and ( "undid " .. pointType .. " point placement." )
@@ -94,14 +94,14 @@ if SERVER then
 
     local function NotifyBlocked( ply, reason )
         ChatTell( ply, "Cannot place point: " .. reason )
-        net.Start( "zgrad_pt_place_deny" )
+        net.Start( "hg_pt_place_deny" )
         net.Send( ply )
     end
 
     local function CommitPoints( ply, pointType, dataKey, entries )
         if #entries == 0 then return 0 end
 
-        local pts    = ZGRAD.SpawnPointsList[dataKey][3]
+        local pts    = SpawnPointsList[dataKey][3]
         local points = {}
         for _, e in ipairs( entries ) do
             local point = { e.pos, e.ang, tonumber( e.num ) }
@@ -109,19 +109,19 @@ if SERVER then
             points[#points + 1] = point
         end
 
-        ZGRAD.WriteDataMap( dataKey, pts )
-        ZGRAD.SendSpawnPoint()
+        WriteDataMap( dataKey, pts )
+        SendSpawnPoint()
 
         if IsValid( ply ) then
             local label = ( #points == 1 )
-                and ( "Undone ZGRAD " .. pointType .. " point" )
-                or  ( "Undone ZGRAD " .. pointType .. " placement (" .. #points .. ")" )
+                and ( "Undone Homigrad " .. pointType .. " point" )
+                or  ( "Undone Homigrad " .. pointType .. " placement (" .. #points .. ")" )
 
-            undo.Create( "zgrad_point" )
+            undo.Create( "hg_point" )
                 undo.SetPlayer( ply )
                 undo.AddFunction( UndoAddedPoints, dataKey, points, pointType, ply )
                 undo.SetCustomUndoText( label )
-            undo.Finish( "ZGRAD " .. pointType .. " point" )
+            undo.Finish( "Homigrad " .. pointType .. " point" )
         end
 
         return #points
@@ -134,7 +134,7 @@ if SERVER then
             return
         end
 
-        local resolved = ZGRAD.ResolvePlacement( pos, pointType )
+        local resolved = ResolvePlacement( pos, pointType )
         if not resolved then
             NotifyBlocked( ply, "no clear space nearby." )
             return
@@ -147,16 +147,16 @@ if SERVER then
     end
 
     local function PositionIsPlaceable( pos, pointType, batch, minSpacing )
-        if ZGRAD.IsPointInWall( pos ) then return false end
-        if ZGRAD.FindIntersectingPoint( pos, pointType ) then return false end
+        if IsPointInWall( pos ) then return false end
+        if FindIntersectingPoint( pos, pointType ) then return false end
 
-        if minSpacing and minSpacing > 0 and ZGRAD.FindNearbyPoint( pos, minSpacing ) then
+        if minSpacing and minSpacing > 0 and FindNearbyPoint( pos, minSpacing ) then
             return false
         end
 
         local minSq = ( minSpacing or 0 ) * ( minSpacing or 0 )
         for _, other in ipairs( batch ) do
-            if ZGRAD.PointsIntersect( pos, pointType, other, pointType ) then
+            if PointsIntersect( pos, pointType, other, pointType ) then
                 return false
             end
             if minSq > 0 and pos:DistToSqr( other ) < minSq then
@@ -182,7 +182,7 @@ if SERVER then
 
             local pos = raw
             if snapGround then
-                pos = ZGRAD.SnapToGround( raw ) or raw
+                pos = SnapToGround( raw ) or raw
             end
 
             if PositionIsPlaceable( pos, pointType, batch, minSpacing ) then
@@ -204,7 +204,7 @@ if SERVER then
         local dataKey = DataKeyForType( pointType )
         if not dataKey then return end
 
-        local pts = ZGRAD.SpawnPointsList[dataKey][3]
+        local pts = SpawnPointsList[dataKey][3]
         if not pts[index] then return end
 
         if pts[index][4] then
@@ -213,9 +213,9 @@ if SERVER then
         end
 
         table.remove( pts, index )
-        ZGRAD.WriteDataMap( dataKey, pts )
+        WriteDataMap( dataKey, pts )
 
-        ZGRAD.SendSpawnPoint()
+        SendSpawnPoint()
         ChatTellAll( ply, "removed " .. pointType .. " point #" .. index .. " from the map." )
     end
 
@@ -223,7 +223,7 @@ if SERVER then
         local dataKey = DataKeyForType( pointType )
         if not dataKey then return false end
 
-        local pts = ZGRAD.SpawnPointsList[dataKey][3]
+        local pts = SpawnPointsList[dataKey][3]
         if not pts[index] then return false end
 
         if pts[index][4] then
@@ -231,7 +231,7 @@ if SERVER then
             return false
         end
 
-        local resolved = ZGRAD.ResolvePlacement( newPos, pointType, dataKey, index )
+        local resolved = ResolvePlacement( newPos, pointType, dataKey, index )
         if not resolved then
             NotifyBlocked( ply, "no clear space nearby." )
             return false
@@ -239,9 +239,9 @@ if SERVER then
 
         pts[index][1] = resolved
         pts[index][2] = newAng
-        ZGRAD.WriteDataMap( dataKey, pts )
+        WriteDataMap( dataKey, pts )
 
-        ZGRAD.SendSpawnPoint()
+        SendSpawnPoint()
         ChatTellAll( ply, "moved " .. pointType .. " point #" .. index .. "." )
         return true
     end
@@ -262,7 +262,7 @@ if SERVER then
         local function GetCursorPos()
             local base = GetRawCursor()
             if snapGround then
-                local snapped = ZGRAD.SnapToGround( base )
+                local snapped = SnapToGround( base )
                 if snapped then return snapped end
             end
             return base
@@ -288,9 +288,9 @@ if SERVER then
                 local candidates
                 if placementType == "grid" then
                     local spacing = math.max( 8, self:GetClientNumber( "grid_spacing", 64 ) )
-                    candidates = ZGRAD.GetAreaGridPositions( center, yaw, length, width, spacing, count )
+                    candidates = GetAreaGridPositions( center, yaw, length, width, spacing, count )
                 else
-                    candidates = ZGRAD.GetAreaRandomCandidates( center, yaw, length, width, count )
+                    candidates = GetAreaRandomCandidates( center, yaw, length, width, count )
                 end
 
                 DoAddArea( ply, pointType, candidates, ang, pointNum, snapGround, count, minSpacing )
@@ -335,21 +335,21 @@ if SERVER then
         PointToolClearSelect( self:GetOwner() )
     end
 
-    util.AddNetworkString( "zgrad_pt_select" )
-    util.AddNetworkString( "zgrad_pt_select_sv" )
+    util.AddNetworkString( "hg_pt_select" )
+    util.AddNetworkString( "hg_pt_select_sv" )
 
-    util.AddNetworkString( "zgrad_pt_select_deny" )
-    util.AddNetworkString( "zgrad_pt_place_deny" )
+    util.AddNetworkString( "hg_pt_select_deny" )
+    util.AddNetworkString( "hg_pt_place_deny" )
 
-    net.Receive( "zgrad_pt_select_sv", function( _, ply )
+    net.Receive( "hg_pt_select_sv", function( _, ply )
         local pointType = net.ReadString()
         local index     = net.ReadUInt( 16 )
 
         local dataKey = DataKeyForType( pointType )
         if dataKey then
-            local pts = ZGRAD.SpawnPointsList[dataKey] and ZGRAD.SpawnPointsList[dataKey][3]
+            local pts = SpawnPointsList[dataKey] and SpawnPointsList[dataKey][3]
             if not pts or not pts[index] or pts[index][4] then
-                net.Start( "zgrad_pt_select_deny" )
+                net.Start( "hg_pt_select_deny" )
                 net.Send( ply )
                 return
             end
@@ -357,7 +357,7 @@ if SERVER then
 
         PointToolSetSelect( ply, pointType, index )
 
-        net.Start( "zgrad_pt_select" )
+        net.Start( "hg_pt_select" )
             net.WriteString( pointType )
             net.WriteUInt( index, 16 )
         net.Send( ply )
@@ -375,39 +375,39 @@ end
 
 if CLIENT then
 
-    language.Add( "Tool.zgrad_point_tool.name",  "Map Point Editor (ZGRAD)" )
-    language.Add( "Tool.zgrad_point_tool.desc",  "Place and edit ZGRAD/Homigrad spawn and capture points. Saves to garrysmod/data/zgrad/maps/." )
-    language.Add( "Tool.zgrad_point_tool.0",
+    language.Add( "Tool.hg_point_tool.name",  "Map Point Editor (Homigrad)" )
+    language.Add( "Tool.hg_point_tool.desc",  "Place and edit Homigrad spawn and capture points. Saves to garrysmod/data/homigrad/maps/." )
+    language.Add( "Tool.hg_point_tool.0",
         "[Place] LMB: Place point   |   [Select] LMB: Select / Move   RMB: Delete   R: Deselect   |   Scroll: swap mode" )
 
     local function IsHoldingPointTool( ply )
         if not IsValid( ply ) then return false end
         local wep = ply:GetActiveWeapon()
         if not IsValid( wep ) or wep:GetClass() ~= "gmod_tool" then return false end
-        return ply:GetInfo( "gmod_toolmode" ) == "zgrad_point_tool"
+        return ply:GetInfo( "gmod_toolmode" ) == "hg_point_tool"
     end
 
     local SCROLL_COOLDOWN = 0.18
     local lastScrollSwap  = 0
     local pendingMode     = nil
 
-    cvars.AddChangeCallback( "zgrad_point_tool_mode", function( _, _, new )
+    cvars.AddChangeCallback( "hg_point_tool_mode", function( _, _, new )
         if pendingMode == new then pendingMode = nil end
-    end, "zgrad_point_tool_mode_pending" )
+    end, "hg_point_tool_mode_pending" )
 
     local function SwapPointToolMode()
         local cur = pendingMode
         if not cur then
-            local cv = GetConVar( "zgrad_point_tool_mode" )
+            local cv = GetConVar( "hg_point_tool_mode" )
             cur = cv and cv:GetString() or "place"
         end
 
         local nextMode = ( cur == "place" ) and "select" or "place"
         pendingMode = nextMode
-        RunConsoleCommand( "zgrad_point_tool_mode", nextMode )
+        RunConsoleCommand( "hg_point_tool_mode", nextMode )
     end
 
-    hook.Add( "CreateMove", "ZGrad_PointToolScrollSwap", function( cmd )
+    hook.Add( "CreateMove", "hg_PointToolScrollSwap", function( cmd )
         if vgui.CursorVisible() or gui.IsGameUIVisible() then return end
         if not IsHoldingPointTool( LocalPlayer() ) then return end
 
@@ -421,7 +421,7 @@ if CLIENT then
         SwapPointToolMode()
     end )
 
-    hook.Add( "PlayerBindPress", "ZGrad_PointToolBlockInvScroll", function( ply, bind )
+    hook.Add( "PlayerBindPress", "hg_PointToolBlockInvScroll", function( ply, bind )
         if bind ~= "invnext" and bind ~= "invprev" then return end
         if not IsHoldingPointTool( ply ) then return end
         return true
@@ -471,37 +471,37 @@ if CLIENT then
         local modeCombo = vgui.Create( "DComboBox", cpanel )
         modeCombo:SetTextColor( color_black )
 
-        local currentMode = GetConVar( "zgrad_point_tool_mode" )
+        local currentMode = GetConVar( "hg_point_tool_mode" )
         local modeVal = currentMode and currentMode:GetString() or "place"
         modeCombo:AddChoice( "Place",                  "place"  )
         modeCombo:AddChoice( "Select / Move / Delete", "select" )
         modeCombo:SetValue( modeVal == "select" and "Select / Move / Delete" or "Place" )
 
         modeCombo.OnSelect = function( _, _, _, data )
-            RunConsoleCommand( "zgrad_point_tool_mode", data )
+            RunConsoleCommand( "hg_point_tool_mode", data )
         end
         modeCombo:Dock( TOP )
         modeCombo:DockMargin( 4, 0, 4, 4 )
         cpanel:AddItem( modeCombo )
 
-        cvars.AddChangeCallback( "zgrad_point_tool_mode", function( _, _, new )
+        cvars.AddChangeCallback( "hg_point_tool_mode", function( _, _, new )
             if not IsValid( modeCombo ) then return end
             modeCombo:SetValue( new == "select" and "Select / Move / Delete" or "Place" )
-        end, "zgrad_point_tool_mode_combo" )
+        end, "hg_point_tool_mode_combo" )
 
         MakeHeader( cpanel, "Placement Origin" )
 
         local placeCombo = vgui.Create( "DComboBox", cpanel )
         placeCombo:SetTextColor( color_black )
 
-        local currentPlaceMode = GetConVar( "zgrad_point_tool_place_mode" )
+        local currentPlaceMode = GetConVar( "hg_point_tool_place_mode" )
         local placeModeVal = currentPlaceMode and currentPlaceMode:GetString() or "surface"
         placeCombo:AddChoice( "Surface (trace hit)",  "surface" )
         placeCombo:AddChoice( "Self (your feet)",     "self"    )
         placeCombo:SetValue( placeModeVal == "self" and "Self (your feet)" or "Surface (trace hit)" )
 
         placeCombo.OnSelect = function( _, _, _, data )
-            RunConsoleCommand( "zgrad_point_tool_place_mode", data )
+            RunConsoleCommand( "hg_point_tool_place_mode", data )
         end
         placeCombo:Dock( TOP )
         placeCombo:DockMargin( 4, 0, 4, 2 )
@@ -511,7 +511,7 @@ if CLIENT then
 
         local snapCheck = vgui.Create( "DCheckBoxLabel", cpanel )
         snapCheck:SetText( "Snap to ground when available" )
-        snapCheck:SetConVar( "zgrad_point_tool_snap_ground" )
+        snapCheck:SetConVar( "hg_point_tool_snap_ground" )
         snapCheck:SetDark( true )
         snapCheck:Dock( TOP )
         snapCheck:DockMargin( 6, 4, 6, 4 )
@@ -522,11 +522,11 @@ if CLIENT then
         local typeCombo = vgui.Create( "DComboBox", cpanel )
         typeCombo:SetTextColor( color_black )
 
-        local currentType = GetConVar( "zgrad_point_tool_point_type" )
+        local currentType = GetConVar( "hg_point_tool_point_type" )
         local typeVal     = currentType and currentType:GetString() or "red"
 
         local sorted = {}
-        for _, info in pairs( ZGRAD.SpawnPointsList or {} ) do
+        for _, info in pairs( SpawnPointsList or {} ) do
             sorted[#sorted + 1] = info[1]
         end
         table.sort( sorted )
@@ -537,7 +537,7 @@ if CLIENT then
         typeCombo:SetValue( typeVal )
 
         typeCombo.OnSelect = function( _, _, value )
-            RunConsoleCommand( "zgrad_point_tool_point_type", value )
+            RunConsoleCommand( "hg_point_tool_point_type", value )
         end
         typeCombo:Dock( TOP )
         typeCombo:DockMargin( 4, 0, 4, 4 )
@@ -551,7 +551,7 @@ if CLIENT then
         numSlider:SetText( "Number" )
         numSlider:SetMinMax( 1, 32 )
         numSlider:SetDecimals( 0 )
-        numSlider:SetConVar( "zgrad_point_tool_point_number" )
+        numSlider:SetConVar( "hg_point_tool_point_number" )
         numSlider:SetDark( true )
         numSlider:Dock( TOP )
         numSlider:DockMargin( 4, 0, 4, 4 )
@@ -572,7 +572,7 @@ if CLIENT then
             placementCombo:AddChoice( PLACEMENT_LABELS[key], key )
         end
 
-        local currentPlacement = GetConVar( "zgrad_point_tool_placement_type" )
+        local currentPlacement = GetConVar( "hg_point_tool_placement_type" )
         local placementVal     = currentPlacement and currentPlacement:GetString() or "single"
         placementCombo:SetValue( PLACEMENT_LABELS[placementVal] or PLACEMENT_LABELS.single )
 
@@ -593,11 +593,11 @@ if CLIENT then
             return s
         end
 
-        local lenSlider      = MakeAreaSlider( "Length",      "zgrad_point_tool_area_length",      64, 2048, 0 )
-        local widthSlider    = MakeAreaSlider( "Width",       "zgrad_point_tool_area_width",       64, 2048, 0 )
-        local countSlider    = MakeAreaSlider( "Max points",  "zgrad_point_tool_area_count",        1,  256, 0 )
-        local spacingSlider  = MakeAreaSlider( "Grid spacing", "zgrad_point_tool_grid_spacing",    16,  512, 0 )
-        local minSpaceSlider = MakeAreaSlider( "Min spacing", "zgrad_point_tool_area_min_spacing",  0,  512, 0 )
+        local lenSlider      = MakeAreaSlider( "Length",      "hg_point_tool_area_length",      64, 2048, 0 )
+        local widthSlider    = MakeAreaSlider( "Width",       "hg_point_tool_area_width",       64, 2048, 0 )
+        local countSlider    = MakeAreaSlider( "Max points",  "hg_point_tool_area_count",        1,  256, 0 )
+        local spacingSlider  = MakeAreaSlider( "Grid spacing", "hg_point_tool_grid_spacing",    16,  512, 0 )
+        local minSpaceSlider = MakeAreaSlider( "Min spacing", "hg_point_tool_area_min_spacing",  0,  512, 0 )
 
         local function ApplyPlacementVisibility( key )
             local isArea = ( key == "random" ) or ( key == "grid" )
@@ -611,7 +611,7 @@ if CLIENT then
         ApplyPlacementVisibility( placementVal )
 
         placementCombo.OnSelect = function( _, _, _, data )
-            RunConsoleCommand( "zgrad_point_tool_placement_type", data )
+            RunConsoleCommand( "hg_point_tool_placement_type", data )
             ApplyPlacementVisibility( data )
         end
 
