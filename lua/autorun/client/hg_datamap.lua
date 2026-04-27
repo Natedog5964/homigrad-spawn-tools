@@ -73,7 +73,7 @@ net.Receive( "hg_spawn_points", function()
     SpawnPointsList = decoded
 	
     hook.Run( "hg_SpawnPointsUpdated" )
-	
+end )	
 	hook.Add( "InitPostEntity", "hg_RequestSpawnPoints", function()
     net.Start( "hg_spawn_points_request" )
     net.SendToServer()
@@ -84,4 +84,3 @@ if LocalPlayer and IsValid( LocalPlayer() ) then
         net.SendToServer()
     end )
 end
-end )
