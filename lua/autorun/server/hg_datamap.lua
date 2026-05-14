@@ -8,76 +8,56 @@ file.CreateDir( mapDir )
 
 SpawnPointsPage = SpawnPointsPage or 1
 
-SpawnPointsList = {
-	regular = {"normal", Color(255, 240, 200)},
+SpawnPointsListtool = {
+	regular = {"normal", Color(255, 240, 200)}, -- Normal / Fallback For Most Spawns
+	
+	dm = {"dm", Color(155, 155, 255)}, -- ffa spawns 
+	
+	spawnpointst = {"red", Color(255, 0, 0)}, -- Team DeathMatch Spawns
+	
+	spawnpointsct = {"blue", Color(0, 0, 255)}, -- Team DeathMatch Spawns / Homicide Police
 
-	spawnpointst = {"red", Color(255, 0, 0)},
-	spawnpointsct = {"blue", Color(0, 0, 255)},
 
-	dm = {"dm", Color(155, 155, 255)},
-
-	bahmut_vagner = {"vagner", Color(255, 0, 0)},
-	bahmut_nato = {"nato", Color(0, 0, 255)},
-
-	spawnpointswick = {"spawnpointswick", Color(255, 0, 0)},
-	spawnpointsnaem = {"spawnpointsnaem", Color(0, 0, 255)},
 
 	spawnpoints_ss_police = {"police", Color(0, 0, 125)},
-	spawnpointsseekers = {"seekers", Color(255, 0, 0)},
-	spawnpointshiders = {"hiders", Color(0, 255, 0)},
-	spawnpoints_ss_exit = {"exit", Color(0, 125, 0), true},
+	
+	--[[	
+	spawnpointsseekers = {"seekers", Color(255, 0, 0)},	-- Hide&Seek/Juggernuat
+	spawnpointshiders = {"hiders", Color(0, 255, 0)}, -- Zombie/Hide&Seek/Juggernuat
+	spawnpoints_ss_exit = {"exit", Color(0, 125, 0), true}, -- Zombie/Hide&Seek
 
-	points_nextbox = {"nextbot", Color(0, 255, 255)},
 
+-- Base Defence Only 
+	boxspawn = {"boxspawn", Color(25, 25, 25)},
+	basedefencebots = {"basedefencebots", Color(155, 155, 155)},
+	basedefencegred = {"basedefencegred", Color(255, 255, 255)},
+	basedefenceplayerspawns = {"basedefenceplayerspawns", Color(255, 255, 0)},
+	basedefencegred_ammo = {"basedefencegred_ammo", Color(25, 25, 25)},
+	gred_simfphys_brdm2 = {"gred_simfphys_brdm2", Color(25, 25, 25)},
+	
+-- Bahmut Only
+	bahmut_vagner = {"vagner", Color(255, 0, 0)},
+	bahmut_nato = {"nato", Color(0, 0, 255)},
+	wac_hc_ah1z_viper = {"wac_hc_ah1z_viper", Color(25, 25, 25)},
+	wac_hc_littlebird_ah6 = {"wac_hc_littlebird_ah6", Color(25, 25, 25)},
+	wac_hc_mi28_havoc = {"wac_hc_mi28_havoc", Color(25, 25, 25)},
+	wac_hc_blackhawk_uh60 = {"wac_hc_blackhawk_uh60", Color(25, 25, 25)},
+	controlpoint = {"control_point", Color(25, 25, 25)},
+	car_red = {"car_red", Color(125, 125, 125)},
+	car_blue = {"car_blue", Color(125, 125, 125)},
+	car_red_btr = {"car_red_btr", Color(125, 125, 125)},
+	car_blue_btr = {"car_blue_btr", Color(125, 125, 125)},
+	car_red_tank = {"car_red_tank", Color(125, 125, 125)},
+	car_blue_tank = {"car_blue_tank", Color(125, 125, 125)},
 	gred_emp_dshk = {"gred_emp_dshk", Color(25, 25, 25)},
 	gred_ammobox = {"gred_ammobox", Color(25, 25, 25)},
 	gred_emp_2a65 = {"gred_emp_2a65", Color(25, 25, 25)},
 	gred_emp_pak40 = {"gred_emp_pak40", Color(25, 25, 25)},
 	gred_emp_breda35 = {"gred_emp_breda35", Color(25, 25, 25)},
-
-	wac_hc_ah1z_viper = {"wac_hc_ah1z_viper", Color(25, 25, 25)},
-	wac_hc_littlebird_ah6 = {"wac_hc_littlebird_ah6", Color(25, 25, 25)},
-	wac_hc_mi28_havoc = {"wac_hc_mi28_havoc", Color(25, 25, 25)},
-	wac_hc_blackhawk_uh60 = {"wac_hc_blackhawk_uh60", Color(25, 25, 25)},
-
-	controlpoint = {"control_point", Color(25, 25, 25)},
-
-	boxspawn = {"boxspawn", Color(25, 25, 25)},
-
-	basedefencebots = {"basedefencebots", Color(155, 155, 155)},
-	basedefencegred = {"basedefencegred", Color(255, 255, 255)},
-	basedefenceplayerspawns = {"basedefenceplayerspawns", Color(255, 255, 0)},
-	basedefencegred_ammo = {"basedefencegred_ammo", Color(25, 25, 25)},
-
-	gred_simfphys_brdm2 = {"gred_simfphys_brdm2", Color(25, 25, 25)},
-
-	car_red = {"car_red", Color(125, 125, 125)},
-	car_blue = {"car_blue", Color(125, 125, 125)},
-
-	car_red_btr = {"car_red_btr", Color(125, 125, 125)},
-	car_blue_btr = {"car_blue_btr", Color(125, 125, 125)},
-
-	car_red_tank = {"car_red_tank", Color(125, 125, 125)},
-	car_blue_tank = {"car_blue_tank", Color(125, 125, 125)},
-
-	center = {"center", Color(255, 255, 255)},
-
-	jailbreak = {"jailbreak", Color(0, 125, 0)},
-	jailbreak_doors = {"jailbreak_doors", Color(255, 0, 0)},
-
-	darkrp_jail = {"darkrp_jail", Color(255, 255, 255)},
-
-	scp173 = {"scp173", Color(255, 0, 0)},
-	scp096 = {"scp096", Color(255, 0, 0)},
-	scpWhite = {"scpWhite", Color(255, 255, 255)},
-
-	bhop = {"bhop", Color(255, 0, 0)},
-
-	level_construct = {"level_construct", Color(0, 0, 0)},
-
-	sim_fphys_tank3 = {"sim_fphys_tank3", Color(165, 165, 165)},
-	sim_fphys_tank4 = {"sim_fphys_tank4", Color(165, 165, 165)},
-	sim_fphys_conscriptapc_armed = {"sim_fphys_conscriptapc_armed", Color(165, 165, 165)}
+	]]
+	
+	-- Unsure What This Does?
+	center = {"center", Color(255, 255, 255)}, 
 }
 
 local function GetDataMapName( name, localToDataFolder )
